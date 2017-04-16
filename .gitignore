@@ -8,3 +8,4 @@
 *.h5
 
 ibmseti-master/
+.ipynb_checkpoints/
