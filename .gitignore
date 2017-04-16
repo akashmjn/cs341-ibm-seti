@@ -1,0 +1,10 @@
+*.zip
+*.pyc
+*~
+*.tar.gz
+*.tar
+*.gz
+*.npy
+*.h5
+
+ibmseti-master/
