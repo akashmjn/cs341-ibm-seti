@@ -7,6 +7,9 @@
 *.gz
 *.npy
 *.h5
+*.swp
+*.jpg
+*.png
 
 ibmseti-master/
 .ipynb_checkpoints/

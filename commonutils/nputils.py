@@ -1,4 +1,6 @@
+# Code used from Derric Williams https://gist.github.com/derricw/95eab740e1b08b78c03f
 import numpy as np
+
 
 def bin_ndarray(ndarray, new_shape, operation='sum'):
     """
