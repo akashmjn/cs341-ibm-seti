@@ -2,6 +2,8 @@ import os,sys
 import numpy as np
 import nputils
 import matplotlib.pyplot as plt
+import collections
+import pandas as pd
 
 import keras
 from keras import backend as K
@@ -101,6 +103,11 @@ def modelActivations(model,layer_name,input,show=False,save=False,poolfit=None):
 ######
 
 def generateAllActivations(dirpath,savedir):
+    """
+    Reads in all images from a folder and generates activations for them in batches
+    As it is a long process that will likely be interrupted, it checks and only processes
+    files that have not been generated so far. 
+    """
 
     os.system('mkdir -p '+savedir)
     # Listing out image files in source directory
@@ -145,4 +152,170 @@ def generateAllActivations(dirpath,savedir):
             img = preprocess_input(img) 
             imgBatch[j] = img 
             fileBatch[j] = imgfile
+
+
+### Functions to load in and combine all model activations into datasets
+
+def loadActivations(actPath,fileListPath,nval,ntest,ntrain=None):
+
+    # Loading in list of files
+    files = [f for f in os.listdir(actPath)]
+    ext = list(set([f.split('.')[1] for f in files]))[0]
+    print 'Picking files of extension %s' % ext
+    files = [f for f in files if f.endswith(ext)]
+    
+    # If ntrain specified, this is used to create datasets of smaller
+    # size by randomly picking files from the entire file list
+    if ntrain:
+        nFull = min(len(files),ntrain+ntest+nval)
+        np.random.seed(2)
+        sampleIndices = np.random.permutation(range(len(files)))[0:nFull]
+        files = [ files[i] for i in sampleIndices ]
+    else:
+        ntrain = len(files) - (ntest+nval)
+    n = len(files)
+    
+    # Splitting training and test data
+    print 'The number of files is %d' %(n)    
+    # ntrain = n - int(n*traintestSplit)
+    # ntest  = int(n*traintestSplit)
+
+    # Reading in all the data labels into a dict for use below
+    # key : file_index (000100 etc.) 
+    Label_dict = collections.defaultdict(list)
+    fileListDF = pd.read_csv("fileList.csv",dtype={'file_index':str})
+    for i in range(len(fileListDF.index)):
+        Label_dict[fileListDF.ix[i]['file_index']]=fileListDF.ix[i]['label']
+
+    size = np.load(os.path.join(actPath,files[0])).flatten().shape
+
+    '''
+    Store the input files as a x_train, y_train, x_val and y_val ,x_test and y_test.
+    '''
+    x_train = np.zeros((ntrain,)+size)
+    y_train = np.zeros((ntrain,))
+    train_ids = []
+    for i in range(ntrain):
+        filename = files[i]
+        act = np.load(os.path.join(actPath,filename)).flatten()
+        x_train[i,:] = act
+        fileID = filename.split(".")[0]    
+        train_ids.append(fileID)
+        y_train[i] = Label_dict[fileID] 
+
+    x_val = np.zeros((nval,)+size)
+    y_val = np.zeros((nval,))
+    val_ids = []
+    for i in range(nval):
+        filename = files[i+ntrain]
+        act = np.load(os.path.join(actPath,filename)).flatten()
+        x_val[i,:] = act
+        fileID = filename.split(".")[0]
+        val_ids.append(fileID)
+        y_val[i] = Label_dict[fileID]  
+
+    x_test = np.zeros((ntest,)+size)
+    y_test = np.zeros((ntest,))
+    test_ids = []
+    for i in range(ntest):
+        filename = files[i+ntrain+nval]
+        act = np.load(os.path.join(actPath,filename)).flatten()
+        x_test[i,:] = act
+        fileID = filename.split(".")[0] 
+        test_ids.append(fileID) 
+        y_test[i] = Label_dict[fileID]    
+
+    # distribution of labels in train / test
+    count_dict_train = {}
+    count_dict_val = {}
+    count_dict_test = {}
+    for i in range(int(np.max(y_train))+1):
+        count_dict_train[i] = np.count_nonzero(y_train==i)
+        count_dict_val[i] = np.count_nonzero(y_val==i)
+        count_dict_test[i] = np.count_nonzero(y_test==i)
+
+    print 'Dim of data: %d' % x_train[0,:].shape[0]
+    print 'Number of training images = %d' %(ntrain)
+    print 'Number of validation images = %d' %(nval)
+    print 'Number of test images = %d' %(ntest)
+
+    print 'Distribution in training images: \n0 - %d \n1 - %d \n2 - %d \n3 - %d \n4 - %d'%(\
+            count_dict_train[0],count_dict_train[1],count_dict_train[2],
+            count_dict_train[3],count_dict_train[4])
+    print 'Distribution in validation images: \n0 - %d \n1 - %d \n2 - %d \n3 - %d \n4 - %d'%(\
+            count_dict_val[0],count_dict_val[1],count_dict_val[2],count_dict_val[3],count_dict_val[4])
+    print 'Distribution in test images: \n0 - %d \n1 - %d \n2 - %d \n3 - %d \n4 - %d'%(\
+            count_dict_test[0],count_dict_test[1],count_dict_test[2],count_dict_test[3],count_dict_test[4])
+
+    return {'x_train':x_train,'y_train':y_train,'train_ids':train_ids,
+            'x_val':x_val,'y_val':y_val,'val_ids':val_ids,
+            'x_test':x_test,'y_test':y_test,'test_ids':test_ids}
+
+def sampleDataset(hdf5filepath,ntrain=None,fixSkew=None):
+
+    with h5py.File(hdf5filepath,'r') as hf:
+        x_train = np.array(hf.get('x_train'))
+        y_train = np.array(hf.get('y_train'))
+        train_ids = np.array(hf.get('train_ids'))
+        x_val = np.array(hf.get('x_val'))
+        y_val = np.array(hf.get('y_val'))
+        val_ids = np.array(hf.get('val_ids'))
+        x_test = np.array(hf.get('x_test'))
+        y_test = np.array(hf.get('y_test'))
+        test_ids = np.array(hf.get('test_ids'))
+
+    # If specified resample training data
+    if ntrain:
+        np.random.seed(2)
+        indices = np.random.permutation(range( x_train.shape[0] ))[0:ntrain]
+        x_train = x_train[indices]
+        y_train = y_train[indices]
+        train_ids = train_ids[indices]
+
+    # distribution of labels in train / test
+    count_dict_train = {}
+    count_dict_val = {}
+    count_dict_test = {}
+    for i in range(5):
+        count_dict_train[i] = np.count_nonzero(y_train==i)
+        count_dict_val[i] = np.count_nonzero(y_val==i)
+        count_dict_test[i] = np.count_nonzero(y_test==i)
+
+    # Resampling data 
+    if fixSkew:
+        train_dist = {}
+        train_resample = {}
+        bdist = 0.2
+        for k,v in count_dict_train.items():
+            train_dist[k] = v*1.0/ntrain
+            if (bdist-train_dist[k])>0.01:
+                train_resample[k] = int(bdist*ntrain) - v
+
+        for k,v in train_resample.items():
+            if train_dist[k]!=0:
+                x_train_label_k = x_train[y_train==k]
+                np.random.seed(2)
+                resampled = np.random.choice(x_train_label_k.shape[0],v)
+                x_train = np.append(x_train,x_train[resampled],axis=0)
+                y_train = np.append(y_train,np.repeat(k,len(resampled)),axis=0)
+                count_dict_train[k] = int(bdist*ntrain)
+
+
+    print 'Dim of data: %d' % x_train[0,:].shape[0]
+
+    print 'Number of training images = %d' %(y_train.shape[0])
+    print 'Number of validation images = %d' %(y_val.shape[0])
+    print 'Number of test images = %d' %(y_test.shape[0])
+
+    print 'Distribution in training images: \n0 - %d \n1 - %d \n2 - %d \n3 - %d \n4 - %d'%(\
+            count_dict_train[0],count_dict_train[1],count_dict_train[2],
+            count_dict_train[3],count_dict_train[4])
+    print 'Distribution in validation images: \n0 - %d \n1 - %d \n2 - %d \n3 - %d \n4 - %d'%(\
+            count_dict_val[0],count_dict_val[1],count_dict_val[2],count_dict_val[3],count_dict_val[4])
+    print 'Distribution in test images: \n0 - %d \n1 - %d \n2 - %d \n3 - %d \n4 - %d'%(\
+            count_dict_test[0],count_dict_test[1],count_dict_test[2],count_dict_test[3],count_dict_test[4])
+
+    return  {'x_train':x_train,'y_train':y_train,'train_ids':train_ids,
+            'x_val':x_val,'y_val':y_val,'val_ids':val_ids,
+            'x_test':x_test,'y_test':y_test,'test_ids':test_ids}               
 
