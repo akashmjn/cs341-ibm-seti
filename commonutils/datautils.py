@@ -4,6 +4,7 @@ import nputils
 import matplotlib.pyplot as plt
 import collections
 import pandas as pd
+import h5py
 
 import keras
 from keras import backend as K
@@ -156,7 +157,7 @@ def generateAllActivations(dirpath,savedir):
 
 ### Functions to load in and combine all model activations into datasets
 
-def loadActivations(actPath,fileListPath,nval,ntest,ntrain=None):
+def createActivationsDataset(actPath,fileListPath,nval,ntest,filename,ntrain=None):
 
     # Loading in list of files
     files = [f for f in os.listdir(actPath)]
@@ -234,6 +235,7 @@ def loadActivations(actPath,fileListPath,nval,ntest,ntrain=None):
         count_dict_val[i] = np.count_nonzero(y_val==i)
         count_dict_test[i] = np.count_nonzero(y_test==i)
 
+    # Should probably change this part 
     print 'Dim of data: %d' % x_train[0,:].shape[0]
     print 'Number of training images = %d' %(ntrain)
     print 'Number of validation images = %d' %(nval)
@@ -247,11 +249,17 @@ def loadActivations(actPath,fileListPath,nval,ntest,ntrain=None):
     print 'Distribution in test images: \n0 - %d \n1 - %d \n2 - %d \n3 - %d \n4 - %d'%(\
             count_dict_test[0],count_dict_test[1],count_dict_test[2],count_dict_test[3],count_dict_test[4])
 
-    return {'x_train':x_train,'y_train':y_train,'train_ids':train_ids,
+    # Creating a compiled dataset, and then saving it to file
+    dataset = {'x_train':x_train,'y_train':y_train,'train_ids':train_ids,
             'x_val':x_val,'y_val':y_val,'val_ids':val_ids,
             'x_test':x_test,'y_test':y_test,'test_ids':test_ids}
 
-def sampleDataset(hdf5filepath,ntrain=None,fixSkew=None):
+    with h5py.File(filename,'w') as hf:
+        for key in dataset.keys():
+            hf.create_dataset(key,data=dataset[key])
+
+
+def loadDataset(hdf5filepath,ntrain=None,fixSkew=None):
 
     with h5py.File(hdf5filepath,'r') as hf:
         x_train = np.array(hf.get('x_train'))
