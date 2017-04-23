@@ -13,6 +13,7 @@ from keras.applications.vgg16 import VGG16
 from keras.preprocessing import image
 from keras.applications.vgg16 import preprocess_input
 from keras.models import Model
+from keras.utils import np_utils
 
 from PIL import Image
 
@@ -307,6 +308,35 @@ def loadDataset(hdf5filepath,ntrain=None,fixSkew=None):
                 x_train = np.append(x_train,x_train[resampled],axis=0)
                 y_train = np.append(y_train,np.repeat(k,len(resampled)),axis=0)
                 count_dict_train[k] = int(bdist*ntrain)
+    
+    # Centering and scaling data
+    num_val = x_val.shape[0]
+    num_test = x_test.shape[0]
+    nb_classes = 7
+
+    means = np.mean(x_train,axis=0)
+    stddev = np.std(x_train,axis=0)
+    # Preventing zero division
+    stddev[stddev<1e-3] = 1
+    x_train = (x_train - means)/stddev
+    x_val = (x_val - means)/stddev
+    x_test = (x_test - means)/stddev
+
+    # input shape
+    act_shape = x_train[0].shape
+    num_train = x_train.shape[0]
+
+    # Creating full input vectors 
+    x_train = np.reshape(x_train,(num_train,)+act_shape)
+    x_val = np.reshape(x_val,(num_val,)+act_shape)
+    x_test = np.reshape(x_test,(num_test,)+act_shape)
+
+    # convert class vectors to binary class matrices
+    # y_train = np.reshape(y_train,(num_train,))
+    # y_val = np.reshape(y_val,(num_val,))
+#    y_train = np_utils.to_categorical(y_train, nb_classes)
+#    y_val = np_utils.to_categorical(y_val, nb_classes)
+#    y_test = np_utils.to_categorical(y_test, nb_classes)
 
 
     print 'Dim of data: %d' % x_train[0,:].shape[0]
