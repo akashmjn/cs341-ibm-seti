@@ -12,8 +12,8 @@ from sklearn.metrics import classification_report,confusion_matrix
 K.set_image_dim_ordering('tf')
 
 import matplotlib.pyplot as plt
+#import tensorflow as tf
 import keras
-import tensorflow as tf
 import numpy as np
 from PIL import Image
 import re
@@ -48,29 +48,29 @@ num_test = dataset['x_test'].shape[0]
 num_train = dataset['x_train'].shape[0]
 
 # Creating datasets
-x_train = dataset['x_train']
+X_train = dataset['x_train']
 y_train = dataset['y_train']
-x_val = dataset['x_val']
+X_val = dataset['x_val']
 y_val = dataset['y_val']
-x_test = dataset['x_test']
+X_test = dataset['x_test']
 y_test = dataset['y_test']
-# Scaling training and test data
-means = np.mean(x_train,axis=0)
-stddev = np.std(x_train,axis=0)
-# Preventing zero division
-stddev[stddev<1e-3] = 1
-x_train = (x_train - means)/stddev
-x_val = (x_val - means)/stddev
-x_test = (x_test - means)/stddev
-
-# input shape
-act_shape = x_train[0].shape
-num_train = x_train.shape[0]
-
-# Creating full input vectors 
-X_train = np.reshape(x_train,(num_train,)+act_shape)
-X_val = np.reshape(x_val,(num_val,)+act_shape)
-X_test = np.reshape(x_test,(num_test,)+act_shape)
+## Scaling training and test data
+#means = np.mean(x_train,axis=0)
+#stddev = np.std(x_train,axis=0)
+## Preventing zero division
+#stddev[stddev<1e-3] = 1
+#x_train = (x_train - means)/stddev
+#x_val = (x_val - means)/stddev
+#x_test = (x_test - means)/stddev
+#
+## input shape
+#act_shape = x_train[0].shape
+#num_train = x_train.shape[0]
+#
+## Creating full input vectors 
+#X_train = np.reshape(x_train,(num_train,)+act_shape)
+#X_val = np.reshape(x_val,(num_val,)+act_shape)
+#X_test = np.reshape(x_test,(num_test,)+act_shape)
 
 # convert class vectors to binary class matrices
 # y_train = np.reshape(y_train,(num_train,))
@@ -87,9 +87,9 @@ Y_test = np_utils.to_categorical(y_test, nb_classes)
 
 # FC classifier network  trained on activations
 model_class = Sequential()
-model_class.add(Dense(2048,input_shape=(X_train.shape[1],),activation='relu'))
+model_class.add(Dense(2048,input_shape=(X_train.shape[1],),activation='relu',init="he_normal"))
 model_class.add(BatchNormalization())
-model_class.add(Dropout(0.6))
+model_class.add(Dropout(0.5))
 model_class.add(Dense(256,activation='relu'))
 model_class.add(BatchNormalization())
 model_class.add(Dropout(0.5))
@@ -97,7 +97,7 @@ model_class.add(Dense(nb_classes,activation='softmax'))
 
 # FC regression network  trained on activations
 model_reg = Sequential()
-model_reg.add(Dense(2048,input_shape=(X_train.shape[1],),activation='relu'))
+model_reg.add(Dense(2048,input_shape=(X_train.shape[1],),activation='relu',init="he_normal"))
 model_reg.add(BatchNormalization())
 model_reg.add(Dropout(0.5))
 model_reg.add(Dense(256,activation='relu'))
@@ -144,7 +144,7 @@ if model_type=='class':
   print("Training a classifier with NLL loss\n")
 
   # name to save model
-  modelName = 'Class_2048_8x8_resampled_'+optim+'lr'+str(lr)+'decay'+str(decay)
+  modelName = 'Class_2048_4_22_'+optim+'lr'+str(lr)+'decay'+str(decay)
   model = model_class
   model.compile(loss='categorical_crossentropy',
                 optimizer=foptim,
@@ -153,8 +153,8 @@ if model_type=='class':
   # defining callback functions for saving models etc. Saves model with 
   # best validation accuracy
   checkPointer = ModelCheckpoint(filepath="./savedModels/"+modelName+'.hdf5',
-                                 monitor='val_categorical_accuracy',verbose=1, save_best_only=True)
-  reduce_lr = ReduceLROnPlateau(monitor='val_categorical_accuracy', factor=0.2,patience=5, min_lr=1e-6)
+                                 monitor='val_loss',verbose=1, save_best_only=True)
+  reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2,patience=5, min_lr=1e-7)
   history = model.fit(X_train, Y_train,
           batch_size=batch_size,
           nb_epoch=nb_epoch,
