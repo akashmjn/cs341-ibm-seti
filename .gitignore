@@ -11,5 +11,7 @@
 *.jpg
 *.png
 
+bin/
+savedModels/
 ibmseti-master/
 .ipynb_checkpoints/
