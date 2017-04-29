@@ -342,9 +342,12 @@ def loadDataset(hdf5filepath,ntrain=None,fixSkew=None,subsetClasses=None):
     stddev = np.std(x_train,axis=0)
     # Preventing zero division
     stddev[stddev<1e-3] = 1
-    x_train = (x_train - means)/stddev
-    x_val = (x_val - means)/stddev
-    x_test = (x_test - means)/stddev
+    x_train -= means
+    x_train /= stddev
+    x_val -= means
+    x_val /= stddev
+    x_test -= means
+    x_test /= stddev
 
     # input shape
     act_shape = x_train[0].shape
