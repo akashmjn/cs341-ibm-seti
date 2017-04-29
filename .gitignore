@@ -11,7 +11,10 @@
 *.jpg
 *.png
 
+data/
 bin/
+plots/
+image-exploration/
 savedModels/
 ibmseti-master/
 .ipynb_checkpoints/
