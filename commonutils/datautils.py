@@ -260,7 +260,11 @@ def createActivationsDataset(actPath,fileListPath,nval,ntest,filename,ntrain=Non
             hf.create_dataset(key,data=dataset[key])
 
 
-def loadDataset(hdf5filepath,ntrain=None,fixSkew=None):
+def loadDataset(hdf5filepath,ntrain=None,fixSkew=None,subsetClasses=None):
+    """
+    subsetClasses: dict mapping a subset of labels to the required labels
+    Ignore fixSkew for now
+    """
 
     with h5py.File(hdf5filepath,'r') as hf:
         x_train = np.array(hf.get('x_train'))
@@ -272,6 +276,24 @@ def loadDataset(hdf5filepath,ntrain=None,fixSkew=None):
         x_test = np.array(hf.get('x_test'))
         y_test = np.array(hf.get('y_test'))
         test_ids = np.array(hf.get('test_ids'))
+    
+    # If argument passed, subset the data
+    if subsetClasses:
+        n = y_train.shape[0]
+        indices = np.array([y_train[i] in subsetClasses.keys() for i in range(n)])
+        x_train = x_train[indices]
+        train_ids = train_ids[indices]
+        y_train = np.array([subsetClasses[label] for label in y_train[indices]])
+        n = y_val.shape[0]
+        indices = np.array([y_val[i] in subsetClasses.keys() for i in range(n)])
+        x_val = x_val[indices]
+        val_ids = val_ids[indices]
+        y_val = np.array([subsetClasses[label] for label in y_val[indices]])
+        n = y_test.shape[0]
+        indices = np.array([y_test[i] in subsetClasses.keys() for i in range(n)])
+        x_test = x_test[indices]
+        test_ids = test_ids[indices]
+        y_test = np.array([subsetClasses[label] for label in y_test[indices]])
 
     # If specified resample training data
     if ntrain:
@@ -282,6 +304,7 @@ def loadDataset(hdf5filepath,ntrain=None,fixSkew=None):
         train_ids = train_ids[indices]
 
     # distribution of labels in train / test
+    # TODO: Need to generalize this for this case
     count_dict_train = {}
     count_dict_val = {}
     count_dict_test = {}
@@ -291,6 +314,7 @@ def loadDataset(hdf5filepath,ntrain=None,fixSkew=None):
         count_dict_test[i] = np.count_nonzero(y_test==i)
 
     # Resampling data 
+    # TODO: Need to generalize this code 
     if fixSkew:
         train_dist = {}
         train_resample = {}

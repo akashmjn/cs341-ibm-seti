@@ -25,11 +25,10 @@ from sklearn import svm
 from sklearn.externals import joblib
 
 # Taking in command line args
-# python activationModel.py MODELTYPE NUM_TRAIN NEpochs OPTIM LR DECAY
+# python activationModel.py MODELTYPE NUM_TRAIN NEpochs OPTIM LR DECAY subset
 args = sys.argv
 
 batch_size = 75
-nb_classes = 7
 model_type = args[1]
 #num_train = int(args[2])
 nb_epoch = int(args[3])
@@ -42,7 +41,16 @@ data_augmentation = False
 os.system("mkdir -p plots")
 os.system("mkdir -p savedModels")
 
-dataset = cu.datautils.loadDataset("data/activations-4-19.h5")
+# Loading either full dataset or subset of classes
+if len(args)==8:
+    subsetClasses = {0.0:0.0,2.0:1.0,3.0:2.0,5.0:3.0}
+    dataset = cu.datautils.loadDataset("data/activations-4-19.h5", subsetClasses=subsetClasses)
+    nb_classes = 4
+else:
+    nb_classes = 7
+    dataset = cu.datautils.loadDataset("data/activations-4-19.h5")
+
+modelName = '{}class_{}lr{}decay{}'.format(nb_classes,optim,lr,decay)
 num_val = dataset['x_val'].shape[0]
 num_test = dataset['x_test'].shape[0]
 num_train = dataset['x_train'].shape[0]
@@ -90,7 +98,7 @@ model_class = Sequential()
 model_class.add(Dense(2048,input_shape=(X_train.shape[1],),activation='relu',init="he_normal"))
 model_class.add(BatchNormalization())
 model_class.add(Dropout(0.5))
-model_class.add(Dense(256,activation='relu'))
+model_class.add(Dense(256,activation='relu',init="he_normal"))
 model_class.add(BatchNormalization())
 model_class.add(Dropout(0.5))
 model_class.add(Dense(nb_classes,activation='softmax'))
@@ -144,7 +152,7 @@ if model_type=='class':
   print("Training a classifier with NLL loss\n")
 
   # name to save model
-  modelName = 'Class_2048_4_22_'+optim+'lr'+str(lr)+'decay'+str(decay)
+  modelName = '2048-256Model'+modelName  
   model = model_class
   model.compile(loss='categorical_crossentropy',
                 optimizer=foptim,
