@@ -103,6 +103,20 @@ model_class.add(BatchNormalization())
 model_class.add(Dropout(0.5))
 model_class.add(Dense(nb_classes,activation='softmax'))
 
+# Deeper FC classifier network (lesser params) trained on activations
+model_class_1024_256_256 = Sequential()
+model_class_1024_256_256.add(Dense(1024,input_shape=(X_train.shape[1],),
+    activation='relu',init="he_normal"))
+model_class_1024_256_256.add(BatchNormalization())
+model_class_1024_256_256.add(Dropout(0.6))
+model_class_1024_256_256.add(Dense(256,activation='relu',init="he_normal"))
+model_class_1024_256_256.add(BatchNormalization())
+model_class_1024_256_256.add(Dropout(0.6))
+model_class_1024_256_256.add(Dense(256,activation='relu',init="he_normal"))
+model_class_1024_256_256.add(BatchNormalization())
+model_class_1024_256_256.add(Dropout(0.7))
+model_class_1024_256_256.add(Dense(nb_classes,activation='softmax'))
+
 # FC regression network  trained on activations
 model_reg = Sequential()
 model_reg.add(Dense(2048,input_shape=(X_train.shape[1],),activation='relu',init="he_normal"))
@@ -148,98 +162,54 @@ elif optim=='rmsprop':
 
 #### Training Classification or regression models #####
 
-if model_type=='class':
-  print("Training a classifier with NLL loss\n")
+print("Training a classifier with NLL loss\n")
 
-  # name to save model
-  modelName = '2048-256Model'+modelName  
-  model = model_class
-  model.compile(loss='categorical_crossentropy',
-                optimizer=foptim,
-                metrics=['categorical_accuracy'])
+# name to save model
+modelName = '1024-256-256_'+modelName  
+model = model_class_1024_256_256
+model.compile(loss='categorical_crossentropy',
+              optimizer=foptim,
+              metrics=['categorical_accuracy'])
 
-  # defining callback functions for saving models etc. Saves model with 
-  # best validation accuracy
-  checkPointer = ModelCheckpoint(filepath="./savedModels/"+modelName+'.hdf5',
-                                 monitor='val_loss',verbose=1, save_best_only=True)
-  reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2,patience=5, min_lr=1e-7)
-  history = model.fit(X_train, Y_train,
-          batch_size=batch_size,
-          nb_epoch=nb_epoch,
-          validation_data=(X_val, Y_val),
-          shuffle=True,callbacks=[checkPointer])
+# defining callback functions for saving models etc. Saves model with 
+# best validation accuracy
+checkPointer = ModelCheckpoint(filepath="./savedModels/"+modelName+'.hdf5',
+                               monitor='val_loss',verbose=1, save_best_only=True)
+reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2,patience=5, min_lr=1e-7)
+history = model.fit(X_train, Y_train,
+        batch_size=batch_size,
+        nb_epoch=nb_epoch,
+        validation_data=(X_val, Y_val),
+        shuffle=True,callbacks=[checkPointer])
 
-  best_model = keras.models.load_model("./savedModels/"+modelName+'.hdf5')
-  test_prediction = best_model.predict_classes(X_test)
-  print("\nPrinting results on test dataset for best saved model: \n")
-  temp = classification_report(y_test,test_prediction)
-  print(temp)
-  temp = confusion_matrix(y_test,test_prediction)
-  print(temp)
-  print("Test accuracy: %0.2f " % sklearn.metrics.accuracy_score(y_test,test_prediction))
+best_model = keras.models.load_model("./savedModels/"+modelName+'.hdf5')
+test_prediction = best_model.predict_classes(X_test)
+print("\nPrinting results on test dataset for best saved model: \n")
+temp = classification_report(y_test,test_prediction)
+print(temp)
+temp = confusion_matrix(y_test,test_prediction)
+print(temp)
+print("Test accuracy: %0.2f " % sklearn.metrics.accuracy_score(y_test,test_prediction))
 
-  hist = history.history
-  np.save("./savedModels/"+modelName+'.npy',hist)
+hist = history.history
+np.save("./savedModels/"+modelName+'.npy',hist)
 
-  plt.plot(hist['categorical_accuracy'])
-  plt.plot(hist['val_categorical_accuracy'])
-  plt.title('model accuracy')
-  plt.ylabel('accuracy')
-  plt.xlabel('epoch')
-  plt.legend(['train', 'test'], loc='upper left')
-  plt.savefig("./plots/"+modelName+'_acc'+'.png')
+plt.plot(hist['categorical_accuracy'])
+plt.plot(hist['val_categorical_accuracy'])
+plt.title('model accuracy')
+plt.ylabel('accuracy')
+plt.xlabel('epoch')
+plt.legend(['train', 'test'], loc='upper left')
+plt.savefig("./plots/losscurves/"+modelName+'_acc'+'.png')
 
-  # summarize history for loss
-  plt.plot(hist['loss'])
-  plt.plot(hist['val_loss'])
-  plt.title('model loss')
-  plt.ylabel('loss')
-  plt.xlabel('epoch')
-  plt.legend(['train', 'test'], loc='upper right')
-  plt.savefig("./plots/"+modelName+'_loss'+'.png')
-
-elif model_type=='reg':
-  print("Training a regressor with MSE loss\n")
-
-  # name to save model
-  modelName = 'Reg_2048_8x8_resampled_'+optim+'lr'+str(lr)+'decay'+str(decay)
-  model = model_reg_2048
-  model.compile(loss='mean_squared_error',
-                optimizer=foptim,
-                metrics=['mean_squared_error'])
-
-  # defining callback functions for saving models etc. Saves model with 
-  # best validation accuracy
-  checkPointer = ModelCheckpoint(filepath="./savedModels/"+modelName+'.hdf5',
-                    monitor='val_mean_squared_error',verbose=1, save_best_only=True)
-  reduce_lr = ReduceLROnPlateau(monitor='val_mean_squared_error',
-          factor=0.2,patience=5, min_lr=1e-6)
-  # NOTE: I am using small 'y' here which is not converted to categorical
-  history = model.fit(X_train, y_train,
-          batch_size=batch_size,
-          nb_epoch=nb_epoch,
-          validation_data=(X_val, y_val),
-          shuffle=True,callbacks=[checkPointer])
-
-  best_model = keras.models.load_model("./savedModels/"+modelName+'.hdf5')
-  test_prediction = np.round(best_model.predict(X_test))
-  print("\nPrinting results on test dataset for best saved model: \n")
-  temp = classification_report(y_test, test_prediction)
-  print(temp)
-  temp = confusion_matrix(y_test,test_prediction)
-  print(temp)
-  print("Test accuracy: %0.2f" % sklearn.metrics.accuracy_score(y_test,test_prediction))
-
-  hist = history.history
-  np.save("./savedModels/"+modelName+'.npy',hist)
-
-  plt.plot(hist['mean_squared_error'])
-  plt.plot(hist['val_mean_squared_error'])
-  plt.title('learning curves')
-  plt.ylabel('accuracy')
-  plt.xlabel('epoch')
-  plt.legend(['train', 'test'], loc='upper left')
-  plt.savefig("./plots/"+modelName+'_acc'+'.png')
+# summarize history for loss
+plt.plot(hist['loss'])
+plt.plot(hist['val_loss'])
+plt.title('model loss')
+plt.ylabel('loss')
+plt.xlabel('epoch')
+plt.legend(['train', 'test'], loc='upper right')
+plt.savefig("./plots/losscurves/"+modelName+'_loss'+'.png')
 
 # Possible Data Augmentation 
 # if not data_augmentation:
@@ -278,24 +248,4 @@ elif model_type=='reg':
 # temp = confusion_matrix(y_val,model.predict_classes(X_val))
 # print(temp)
 
-# hist = history.history
-# np.save("./savedModels/"+modelName+'.npy',hist)
-
-
-# plt.plot(hist['categorical_accuracy'])
-# plt.plot(hist['val_categorical_accuracy'])
-# plt.title('model accuracy')
-# plt.ylabel('accuracy')
-# plt.xlabel('epoch')
-# plt.legend(['train', 'test'], loc='upper left')
-# plt.savefig("./plots/"+modelName+'_acc'+'.png')
-
-# # summarize history for loss
-# plt.plot(hist['loss'])
-# plt.plot(hist['val_loss'])
-# plt.title('model loss')
-# plt.ylabel('loss')
-# plt.xlabel('epoch')
-# plt.legend(['train', 'test'], loc='upper right')
-# plt.savefig("./plots/"+modelName+'_loss'+'.png')
 
