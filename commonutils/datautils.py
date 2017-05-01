@@ -17,11 +17,13 @@ from keras.utils import np_utils
 
 from PIL import Image
 
-def saveImageFromSpec(spec,imsize,save=False,filename=None):
+def saveImageFromSpec(spec,imsize,binFactor,save=False,filename=None):
     """
     Saves an image generated from an array containing a spectrogram
     """
-    spec = nputils.bin_ndarray(spec[1:,:],(128,2048),operation='average')
+    specShape = spec.shape
+    spec = nputils.bin_ndarray(spec[1:,:],(specShape[0]-1,specShape[1]/binFactor),
+            operation='average')
     dpi = 96.0
     fig = plt.figure(frameon=False,figsize=(imsize[0]/dpi,imsize[1]/dpi))
     ax = plt.Axes(fig,[0.,0.,1.,1.])
@@ -29,13 +31,14 @@ def saveImageFromSpec(spec,imsize,save=False,filename=None):
     fig.add_axes(ax)
     # fig, ax = plt.subplots(figsize=(20, 10))
     # ax.imshow(np.log(spec), aspect = 0.5*float(spec.shape[1]) / spec.shape[0])
+    plt.set_cmap('jet')
     ax.imshow(np.log(spec), aspect = 'auto')
     fig.savefig("{}.jpg".format(filename),dpi=dpi)
     plt.close('all')
 
 
 
-def modelActivations(model,layer_name,input,show=False,save=False,poolfit=None):
+def modelActivations(model,layer_name,input,poolfit=None,show=False,save=False,):
     """
     Generates activations for a kxmxnx3 array pre-processed image
     @param poolfit Tuple if size 2 indicating target size for each activation
@@ -59,41 +62,44 @@ def modelActivations(model,layer_name,input,show=False,save=False,poolfit=None):
         print fsize
         print fstride
         model_pool.add(keras.layers.MaxPooling2D(pool_size=fsize,
-            strides=fstride,input_shape=(None,None,512)))
+            strides=fstride,input_shape=(None,None,output.shape[3])))
         output = model_pool.predict(output)
 
-    (img_width,img_height) = (output.shape[1],output.shape[2])
-    nactivation = output.shape[3]
-
-    if np.sqrt(nactivation) % 1 == 0:
-        m = int(np.sqrt(nactivation))
-        n = m
-    elif np.sqrt(nactivation/2) % 1 == 0:
-        if img_width > img_height:
-            m = int(np.sqrt(nactivation/2))
-            n = int(nactivation/m)
+    # Creating an image to save activation maps
+    if show or save:
+        (img_width,img_height) = (output.shape[1],output.shape[2])
+        nactivation = output.shape[3]
+    
+        if np.sqrt(nactivation) % 1 == 0:
+            m = int(np.sqrt(nactivation))
+            n = m
+        elif np.sqrt(nactivation/2) % 1 == 0:
+            if img_width > img_height:
+                m = int(np.sqrt(nactivation/2))
+                n = int(nactivation/m)
+            else:
+                n = int(np.sqrt(nactivation/2))
+                m = int(nactivation/n)            
         else:
-            n = int(np.sqrt(nactivation/2))
-            m = int(nactivation/n)            
-    else:
-        raise IndexError('Not figured out how to layout %d activations yet' % nactivation)
-
-    # build a picture with enough space for
-    # m x n filters with a 1px margin in between
-    margin = 1
-    width = m * img_width + (m - 1) * margin
-    height = n * img_height + (n - 1) * margin
-    stitched_filters = np.zeros((width, height))
-
-    # fill the picture with our saved filters
-    for i in range(m):
-        for j in range(n):
-            img = output[0][:,:,i * n + j]
-            stitched_filters[(img_width + margin) * i: (img_width + margin) * i + img_width,
-                             (img_height + margin) * j: (img_height + margin) * j + img_height] = img
+            raise IndexError('Not figured out how to layout %d activations yet' % nactivation)
+    
+        # build a picture with enough space for
+        # m x n filters with a 1px margin in between
+        margin = 1
+        width = m * img_width + (m - 1) * margin
+        height = n * img_height + (n - 1) * margin
+        stitched_filters = np.zeros((width, height))
+    
+        # fill the picture with our saved filters
+        for i in range(m):
+            for j in range(n):
+                img = output[0][:,:,i * n + j]
+                stitched_filters[(img_width + margin) * i: (img_width + margin) * i + img_width,
+                                 (img_height + margin) * j: (img_height + margin) * j + img_height] = img
+        plt.set_cmap('jet')
+        plt.imshow(stitched_filters)
 
     if show==True:
-        plt.imshow(stitched_filters)
         plt.show()
 
     if save==True:
@@ -104,7 +110,7 @@ def modelActivations(model,layer_name,input,show=False,save=False,poolfit=None):
 
 ######
 
-def generateAllActivations(dirpath,savedir):
+def generateAllActivations(dirpath,savedir,layer_name,poolfit=None):
     """
     Reads in all images from a folder and generates activations for them in batches
     As it is a long process that will likely be interrupted, it checks and only processes
@@ -146,7 +152,7 @@ def generateAllActivations(dirpath,savedir):
             fileBatch[j] = imgfile
         # for multiple i (or the end) process the batch and restart
         if (j == 0 and i > 0) or i==(nFiles-1):
-            act = modelActivations(base_model,'block5_pool',imgBatch)
+            act = modelActivations(base_model,layer_name,imgBatch,poolfit)
             for k in range(nBatchSize):
                 np.save( os.path.join(savedir,fileBatch[k].split(".")[0]+'.npy') , act[k,:,:,:] )
             img = np.asarray(Image.open( os.path.join(dirpath,imgfile) )).astype('float32')
