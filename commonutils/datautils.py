@@ -164,7 +164,7 @@ def generateAllActivations(dirpath,savedir,layer_name,poolfit=None):
 
 ### Functions to load in and combine all model activations into datasets
 
-def createActivationsDataset(actPath,fileListPath,nval,ntest,filename,ntrain=None):
+def createActivationsDataset(actPath,fileListPath,nval,ntest,actFilename,ntrain=None):
 
     # Loading in list of files
     files = [f for f in os.listdir(actPath)]
@@ -205,33 +205,39 @@ def createActivationsDataset(actPath,fileListPath,nval,ntest,filename,ntrain=Non
     train_ids = []
     for i in range(ntrain):
         filename = files[i]
+        print('\rTraining set %d / %d: '+filename) % (i,ntrain),
         act = np.load(os.path.join(actPath,filename)).flatten()
         x_train[i,:] = act
         fileID = filename.split(".")[0]    
         train_ids.append(fileID)
         y_train[i] = Label_dict[fileID] 
+    print('\n')
 
     x_val = np.zeros((nval,)+size)
     y_val = np.zeros((nval,))
     val_ids = []
     for i in range(nval):
         filename = files[i+ntrain]
+        print('\rValidation set %d / %d: '+filename) % (i,nval),
         act = np.load(os.path.join(actPath,filename)).flatten()
         x_val[i,:] = act
         fileID = filename.split(".")[0]
         val_ids.append(fileID)
         y_val[i] = Label_dict[fileID]  
+    print('\n')
 
     x_test = np.zeros((ntest,)+size)
     y_test = np.zeros((ntest,))
     test_ids = []
     for i in range(ntest):
         filename = files[i+ntrain+nval]
+        print('\rTest set %d / %d: '+filename) % (i,ntest),
         act = np.load(os.path.join(actPath,filename)).flatten()
         x_test[i,:] = act
         fileID = filename.split(".")[0] 
         test_ids.append(fileID) 
         y_test[i] = Label_dict[fileID]    
+    print('\n')
 
     # distribution of labels in train / test
     count_dict_train = {}
@@ -261,7 +267,7 @@ def createActivationsDataset(actPath,fileListPath,nval,ntest,filename,ntrain=Non
             'x_val':x_val,'y_val':y_val,'val_ids':val_ids,
             'x_test':x_test,'y_test':y_test,'test_ids':test_ids}
 
-    with h5py.File(filename,'w') as hf:
+    with h5py.File(actFilename,'w') as hf:
         for key in dataset.keys():
             hf.create_dataset(key,data=dataset[key])
 
