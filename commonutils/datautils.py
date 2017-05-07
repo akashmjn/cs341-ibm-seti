@@ -162,12 +162,23 @@ def generateAllActivations(dirpath,savedir,layer_name,poolfit=None):
             fileBatch[j] = imgfile
 
 
+def _createDatasetHelper(x_array,y_array,id_array,LabelDict,fileList,basePath,loaderFn,prompt):
+    nFiles = len(fileList)
+    for i in range(nFiles):
+        filename = fileList[i]
+        print('\r{} {} / {}'.format(prompt,i+1,nFiles)),
+        dataPoint = loaderFn(os.path.join(basePath,filename))
+        x_array[i,:] = dataPoint
+        fileID = filename.split(".")[0]
+        id_array.append(fileID)
+        y_array[i] = LabelDict[fileID]  
+    print('\n')
+
 ### Functions to load in and combine all model activations into datasets
 
-def createActivationsDataset(actPath,fileListPath,nval,ntest,actFilename,ntrain=None):
-
+def createDataset(sourcePath,fileListPath,nval,ntest,destFilename,loadImages,ntrain=None):
     # Loading in list of files
-    files = [f for f in os.listdir(actPath)]
+    files = [f for f in os.listdir(sourcePath)]
     ext = list(set([f.split('.')[1] for f in files]))[0]
     print 'Picking files of extension %s' % ext
     files = [f for f in files if f.endswith(ext)]
@@ -195,7 +206,12 @@ def createActivationsDataset(actPath,fileListPath,nval,ntest,actFilename,ntrain=
     for i in range(len(fileListDF.index)):
         Label_dict[fileListDF.ix[i]['file_index']]=fileListDF.ix[i]['label']
 
-    size = np.load(os.path.join(actPath,files[0])).flatten().shape
+    if loadImages: 
+        size = image.img_to_array(image.load_img(os.path.join(sourcePath,files[0]))).shape
+        loaderFn = lambda x: image.img_to_array(image.load_img(x))
+    else:
+        size = np.load(os.path.join(sourcePath,files[0])).flatten().shape
+        loaderFn = lambda x: np.load(x).flatten()
 
     '''
     Store the input files as a x_train, y_train, x_val and y_val ,x_test and y_test.
@@ -203,41 +219,20 @@ def createActivationsDataset(actPath,fileListPath,nval,ntest,actFilename,ntrain=
     x_train = np.zeros((ntrain,)+size)
     y_train = np.zeros((ntrain,))
     train_ids = []
-    for i in range(ntrain):
-        filename = files[i]
-        print('\rTraining set %d / %d: '+filename) % (i,ntrain),
-        act = np.load(os.path.join(actPath,filename)).flatten()
-        x_train[i,:] = act
-        fileID = filename.split(".")[0]    
-        train_ids.append(fileID)
-        y_train[i] = Label_dict[fileID] 
-    print('\n')
-
+    _createDatasetHelper(x_train,y_train,train_ids,
+            Label_dict,files[0:ntrain],sourcePath,loaderFn,'Training set')
+    
     x_val = np.zeros((nval,)+size)
     y_val = np.zeros((nval,))
     val_ids = []
-    for i in range(nval):
-        filename = files[i+ntrain]
-        print('\rValidation set %d / %d: '+filename) % (i,nval),
-        act = np.load(os.path.join(actPath,filename)).flatten()
-        x_val[i,:] = act
-        fileID = filename.split(".")[0]
-        val_ids.append(fileID)
-        y_val[i] = Label_dict[fileID]  
-    print('\n')
+    _createDatasetHelper(x_val,y_val,val_ids,
+            Label_dict,files[ntrain:ntrain+nval],sourcePath,loaderFn,'Validation set')
 
     x_test = np.zeros((ntest,)+size)
     y_test = np.zeros((ntest,))
     test_ids = []
-    for i in range(ntest):
-        filename = files[i+ntrain+nval]
-        print('\rTest set %d / %d: '+filename) % (i,ntest),
-        act = np.load(os.path.join(actPath,filename)).flatten()
-        x_test[i,:] = act
-        fileID = filename.split(".")[0] 
-        test_ids.append(fileID) 
-        y_test[i] = Label_dict[fileID]    
-    print('\n')
+    _createDatasetHelper(x_test,y_test,test_ids,
+            Label_dict,files[ntrain+nval:ntrain+nval+ntest],sourcePath,loaderFn,'Test set')
 
     # distribution of labels in train / test
     count_dict_train = {}
@@ -267,12 +262,18 @@ def createActivationsDataset(actPath,fileListPath,nval,ntest,actFilename,ntrain=
             'x_val':x_val,'y_val':y_val,'val_ids':val_ids,
             'x_test':x_test,'y_test':y_test,'test_ids':test_ids}
 
-    with h5py.File(actFilename,'w') as hf:
+    with h5py.File(destFilename,'w') as hf:
         for key in dataset.keys():
             hf.create_dataset(key,data=dataset[key])
 
 
-def loadDataset(hdf5filepath,ntrain=None,fixSkew=None,subsetClasses=None):
+# Deprecated function
+def createActivationsDataset(actPath,fileListPath,nval,ntest,actFilename,ntrain=None):
+    print("WARNING: This function has changed to createDataset - see commonutils for usage")
+    createDataset(actPath,fileListPath,nval,ntest,actFilename,loadImages=False,ntrain=None)
+
+
+def loadDataset(hdf5filepath,scale=True,ntrain=None,fixSkew=None,subsetClasses=None):
     """
     subsetClasses: dict mapping a subset of labels to the required labels
     Ignore fixSkew for now
@@ -348,18 +349,18 @@ def loadDataset(hdf5filepath,ntrain=None,fixSkew=None,subsetClasses=None):
     # Centering and scaling data
     num_val = x_val.shape[0]
     num_test = x_test.shape[0]
-    nb_classes = 7
 
-    means = np.mean(x_train,axis=0)
-    stddev = np.std(x_train,axis=0)
-    # Preventing zero division
-    stddev[stddev<1e-3] = 1
-    x_train -= means
-    x_train /= stddev
-    x_val -= means
-    x_val /= stddev
-    x_test -= means
-    x_test /= stddev
+    if scale:
+        means = np.mean(x_train,axis=0)
+        stddev = np.std(x_train,axis=0)
+        # Preventing zero division
+        stddev[stddev<1e-3] = 1
+        x_train -= means
+        x_train /= stddev
+        x_val -= means
+        x_val /= stddev
+        x_test -= means
+        x_test /= stddev
 
     # input shape
     act_shape = x_train[0].shape

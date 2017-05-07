@@ -31,7 +31,8 @@ def evaluateSavedModel(modelPath,dataset,mode):
     """
     if mode not in ['test','val']: raise ValueError("mode must be 'train/val'")
     best_model = keras.models.load_model(modelPath)
-    model_prediction = best_model.predict_classes(dataset["x_{}".format(mode)])
+    print("Loaded in model..")
+    model_prediction = np.argmax(best_model.predict(dataset["x_{}".format(mode)]), axis=1 )
     print("\nPrinting results on %s dataset for best saved model: \n" % mode)
     y_true = dataset["y_{}".format(mode)]
     temp = classification_report(y_true,model_prediction)
