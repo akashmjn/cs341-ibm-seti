@@ -21,15 +21,16 @@ import collections
 import os,sys
 import sklearn
 import commonutils as cu 
+import model_specs
 from sklearn import svm
 from sklearn.externals import joblib
 
 # Taking in command line args
-# python activationModel.py MODELTYPE NUM_TRAIN NEpochs OPTIM LR DECAY subset
+# python modelTrain.py DATASET NUM_TRAIN NEpochs OPTIM LR DECAY subset
 args = sys.argv
 
 batch_size = 75
-model_type = args[1]
+datasetPath = args[1]
 #num_train = int(args[2])
 nb_epoch = int(args[3])
 optim = args[4]
@@ -44,11 +45,12 @@ os.system("mkdir -p savedModels")
 # Loading either full dataset or subset of classes
 if len(args)==8:
     subsetClasses = {0.0:0.0,2.0:1.0,3.0:2.0,5.0:3.0}
-    dataset = cu.datautils.loadDataset("data/activations-4-19.h5", subsetClasses=subsetClasses)
+    print("Loading in subset of classes..")
+    dataset = cu.datautils.loadDataset(datasetPath,scale=False,subsetClasses=subsetClasses)
     nb_classes = 4
 else:
     nb_classes = 7
-    dataset = cu.datautils.loadDataset("data/activations-4-19.h5")
+    dataset = cu.datautils.loadDataset(datasetPath)
 
 modelName = '{}class_{}lr{}decay{}'.format(nb_classes,optim,lr,decay)
 num_val = dataset['x_val'].shape[0]
@@ -93,66 +95,6 @@ Y_test = np_utils.to_categorical(y_test, nb_classes)
 #     y_pred = np.asarray(y_pred.eval())
 #     return classification_report(y_true,y_pred)
 
-# FC classifier network  trained on activations
-model_class = Sequential()
-model_class.add(Dense(2048,input_shape=(X_train.shape[1],),activation='relu',init="he_normal"))
-model_class.add(BatchNormalization())
-model_class.add(Dropout(0.5))
-model_class.add(Dense(256,activation='relu',init="he_normal"))
-model_class.add(BatchNormalization())
-model_class.add(Dropout(0.5))
-model_class.add(Dense(nb_classes,activation='softmax'))
-
-# Deeper FC classifier network (lesser params) trained on activations
-model_class_1024_256_256 = Sequential()
-model_class_1024_256_256.add(Dense(1024,input_shape=(X_train.shape[1],),
-    activation='relu',init="he_normal"))
-model_class_1024_256_256.add(BatchNormalization())
-model_class_1024_256_256.add(Dropout(0.6))
-model_class_1024_256_256.add(Dense(256,activation='relu',init="he_normal"))
-model_class_1024_256_256.add(BatchNormalization())
-model_class_1024_256_256.add(Dropout(0.6))
-model_class_1024_256_256.add(Dense(256,activation='relu',init="he_normal"))
-model_class_1024_256_256.add(BatchNormalization())
-model_class_1024_256_256.add(Dropout(0.7))
-model_class_1024_256_256.add(Dense(nb_classes,activation='softmax'))
-
-# FC regression network  trained on activations
-model_reg = Sequential()
-model_reg.add(Dense(2048,input_shape=(X_train.shape[1],),activation='relu',init="he_normal"))
-model_reg.add(BatchNormalization())
-model_reg.add(Dropout(0.5))
-model_reg.add(Dense(256,activation='relu'))
-model_reg.add(BatchNormalization())
-model_reg.add(Dropout(0.5))
-model_reg.add(Dense(1))
-
-# FC regression network  trained on activations
-model_reg_2048 = Sequential()
-model_reg_2048.add(Dense(2048,input_shape=(X_train.shape[1],),activation='relu'))
-model_reg_2048.add(BatchNormalization())
-model_reg_2048.add(Dropout(0.6))
-model_reg_2048.add(Dense(256,activation='relu'))
-model_reg_2048.add(BatchNormalization())
-model_reg_2048.add(Dropout(0.5))
-model_reg_2048.add(Dense(1))
-
-# FC regression network  trained on activations
-model_reg_1024d = Sequential()
-model_reg_1024d.add(Dense(1024,input_shape=(X_train.shape[1],),activation='relu'))
-model_reg_1024d.add(BatchNormalization())
-model_reg_1024d.add(Dropout(0.5))
-model_reg_1024d.add(Dense(256,activation='relu'))
-model_reg_1024d.add(BatchNormalization())
-model_reg_1024d.add(Dropout(0.5))
-model_reg_1024d.add(Dense(64,activation='relu'))
-model_reg_1024d.add(BatchNormalization())
-model_reg_1024d.add(Dropout(0.5))
-model_reg_1024d.add(Dense(1))
-
-# Fixing some keras bug
-keras.backend.get_session().run(tf.global_variables_initializer())
-
 # Picking the optimizer
 
 if optim=='sgd':
@@ -165,8 +107,14 @@ elif optim=='rmsprop':
 print("Training a classifier with NLL loss\n")
 
 # name to save model
-modelName = '1024-256-256_'+modelName  
-model = model_class_1024_256_256
+modelName = '224x224_vgg_fine_tune_'+modelName  
+# model = model_specs.fc_1024_256_256.build(X_train.shape[1],nb_classes)
+model = model_specs.vgg_fine_tune.build((224,224,3),nb_classes,
+                       "./savedModels/224x224_1024-256-256_4class_rmsproplr0.0001decay1e-06.hdf5")
+
+# Fixing some keras bug
+keras.backend.get_session().run(tf.global_variables_initializer())
+
 model.compile(loss='categorical_crossentropy',
               optimizer=foptim,
               metrics=['categorical_accuracy'])
@@ -183,7 +131,7 @@ history = model.fit(X_train, Y_train,
         shuffle=True,callbacks=[checkPointer])
 
 best_model = keras.models.load_model("./savedModels/"+modelName+'.hdf5')
-test_prediction = best_model.predict_classes(X_test)
+test_prediction = np.argmax(best_model.predict(X_test),axis=1)
 print("\nPrinting results on test dataset for best saved model: \n")
 temp = classification_report(y_test,test_prediction)
 print(temp)
