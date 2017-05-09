@@ -174,6 +174,11 @@ def _createDatasetHelper(x_array,y_array,id_array,LabelDict,fileList,basePath,lo
         y_array[i] = LabelDict[fileID]  
     print('\n')
 
+def _printCountDictHelper(countDict,message):
+    print(message)
+    for key in countDict.keys(): 
+        print("{} - {}".format(key,countDict[key]))
+
 ### Functions to load in and combine all model activations into datasets
 
 def createDataset(sourcePath,fileListPath,nval,ntest,destFilename,loadImages,ntrain=None):
@@ -202,7 +207,7 @@ def createDataset(sourcePath,fileListPath,nval,ntest,destFilename,loadImages,ntr
     # Reading in all the data labels into a dict for use below
     # key : file_index (000100 etc.) 
     Label_dict = collections.defaultdict(list)
-    fileListDF = pd.read_csv("fileList.csv",dtype={'file_index':str})
+    fileListDF = pd.read_csv(fileListPath,dtype={'file_index':str})
     for i in range(len(fileListDF.index)):
         Label_dict[fileListDF.ix[i]['file_index']]=fileListDF.ix[i]['label']
 
@@ -249,13 +254,9 @@ def createDataset(sourcePath,fileListPath,nval,ntest,destFilename,loadImages,ntr
     print 'Number of validation images = %d' %(nval)
     print 'Number of test images = %d' %(ntest)
 
-    print 'Distribution in training images: \n0 - %d \n1 - %d \n2 - %d \n3 - %d \n4 - %d'%(\
-            count_dict_train[0],count_dict_train[1],count_dict_train[2],
-            count_dict_train[3],count_dict_train[4])
-    print 'Distribution in validation images: \n0 - %d \n1 - %d \n2 - %d \n3 - %d \n4 - %d'%(\
-            count_dict_val[0],count_dict_val[1],count_dict_val[2],count_dict_val[3],count_dict_val[4])
-    print 'Distribution in test images: \n0 - %d \n1 - %d \n2 - %d \n3 - %d \n4 - %d'%(\
-            count_dict_test[0],count_dict_test[1],count_dict_test[2],count_dict_test[3],count_dict_test[4])
+    _printCountDictHelper(count_dict_train,"Distribution in training data:")
+    _printCountDictHelper(count_dict_val,"Distribution in validation data:")
+    _printCountDictHelper(count_dict_test,"Distribution in test data:")
 
     # Creating a compiled dataset, and then saving it to file
     dataset = {'x_train':x_train,'y_train':y_train,'train_ids':train_ids,
@@ -317,11 +318,10 @@ def loadDataset(hdf5filepath,scale=True,ntrain=None,fixSkew=None,subsetClasses=N
         train_ids = train_ids[indices]
 
     # distribution of labels in train / test
-    # TODO: Need to generalize this for this case
     count_dict_train = {}
     count_dict_val = {}
     count_dict_test = {}
-    for i in range(5):
+    for i in range(int(np.max(y_train))+1):
         count_dict_train[i] = np.count_nonzero(y_train==i)
         count_dict_val[i] = np.count_nonzero(y_val==i)
         count_dict_test[i] = np.count_nonzero(y_test==i)
@@ -385,13 +385,9 @@ def loadDataset(hdf5filepath,scale=True,ntrain=None,fixSkew=None,subsetClasses=N
     print 'Number of validation images = %d' %(y_val.shape[0])
     print 'Number of test images = %d' %(y_test.shape[0])
 
-    print 'Distribution in training images: \n0 - %d \n1 - %d \n2 - %d \n3 - %d \n4 - %d'%(\
-            count_dict_train[0],count_dict_train[1],count_dict_train[2],
-            count_dict_train[3],count_dict_train[4])
-    print 'Distribution in validation images: \n0 - %d \n1 - %d \n2 - %d \n3 - %d \n4 - %d'%(\
-            count_dict_val[0],count_dict_val[1],count_dict_val[2],count_dict_val[3],count_dict_val[4])
-    print 'Distribution in test images: \n0 - %d \n1 - %d \n2 - %d \n3 - %d \n4 - %d'%(\
-            count_dict_test[0],count_dict_test[1],count_dict_test[2],count_dict_test[3],count_dict_test[4])
+    _printCountDictHelper(count_dict_train,"Distribution in training data:")
+    _printCountDictHelper(count_dict_val,"Distribution in validation data:")
+    _printCountDictHelper(count_dict_test,"Distribution in test data:")
 
     return  {'x_train':x_train,'y_train':y_train,'train_ids':train_ids,
             'x_val':x_val,'y_val':y_val,'val_ids':val_ids,
