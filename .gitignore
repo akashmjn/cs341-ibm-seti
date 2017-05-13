@@ -8,13 +8,13 @@
 *.npy
 *.h5
 *.swp
-*.jpg
-*.png
+*.mat
 
 data/
 bin/
 plots/
 image-exploration/
+matlab-exploration/data/
 savedModels/
 ibmseti-master/
 .ipynb_checkpoints/
