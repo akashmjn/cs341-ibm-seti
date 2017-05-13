@@ -14,6 +14,8 @@ data/
 bin/
 plots/
 image-exploration/
+roughImages/
+sampleImages_small_size/
 matlab-exploration/data/
 savedModels/
 ibmseti-master/
