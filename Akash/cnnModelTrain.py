@@ -108,7 +108,7 @@ checkPointer = ModelCheckpoint(filepath="../savedModels/"+modelName+'.hdf5',
 def step_decay(epoch):
     initial_lrate = lr
     drop = 0.5
-    epochs_drop = 10.0
+    epochs_drop = 20.0
     lrate = initial_lrate * math.pow(drop, math.floor((1+epoch)/epochs_drop))
     print("Learning rate: %0.2f",lrate)
     return lrate
