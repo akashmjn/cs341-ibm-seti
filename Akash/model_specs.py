@@ -9,7 +9,7 @@ from keras.preprocessing.image import ImageDataGenerator
 from keras.models import Model
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Activation, Flatten
-from keras.layers import Convolution2D, MaxPooling2D, BatchNormalization
+from keras.layers import Conv2D, MaxPooling2D, BatchNormalization
 from keras.optimizers import SGD,RMSprop
 from keras.callbacks import *
 from keras.utils import np_utils
@@ -58,12 +58,48 @@ class vgg_fine_tune:
         print(model.summary())
         return model
 
-### VGG-hybrid model directly trained on images
-class setiNet_b3_le5:
+### Small CNN model directly trained on images
+class setiNet:
     @staticmethod
-    def build(width,height,depth,nb_classes,weightsPath=None):
-        base_model = VGG16(weights='imagenet',include_top=False)
-        model = Model(inputs=base_model.input, outputs=base_model.get_layer('block3_pool').output)
+    def build(input_shape,nb_classes,weightsPath=None):
+        model = Sequential()
+        model.add(Conv2D(8,(3,3),padding='same',input_shape=input_shape,kernel_initializer="he_normal"))
+        model.add(BatchNormalization())  
+        model.add(Activation('relu'))
+        model.add(MaxPooling2D((2,2)))  # Conv1 - 256x128x8
+        model.add(Conv2D(8,(3,3),padding='same',kernel_initializer="he_normal"))
+        model.add(BatchNormalization()) 
+        model.add(Activation('relu'))
+        model.add(MaxPooling2D((2,2)))  # Conv2 - 128x64x8
+        model.add(Conv2D(32,(3,3),padding='same',kernel_initializer="he_normal"))
+        model.add(BatchNormalization()) 
+        model.add(Activation('relu'))
+        model.add(MaxPooling2D((2,2)))  # Conv3 - 64x32x32
+        model.add(Conv2D(32,(3,3),padding='same',kernel_initializer="he_normal"))
+        model.add(BatchNormalization()) 
+        model.add(Activation('relu'))
+        model.add(MaxPooling2D((2,2)))  # Conv4 - 32x16x32
+        model.add(Conv2D(64,(3,3),padding='same',kernel_initializer="he_normal"))
+        model.add(BatchNormalization()) 
+        model.add(Activation('relu'))
+        model.add(MaxPooling2D((2,2)))  # Conv5 - 16x8x64
+        model.add(Conv2D(64,(3,3),padding='same',kernel_initializer="he_normal"))
+        model.add(BatchNormalization()) 
+        model.add(Activation('relu'))
+        model.add(MaxPooling2D((2,2)))  # Conv6 - 8x4x64
+        model.add(Conv2D(128,(3,3),padding='same',kernel_initializer="he_normal"))
+        model.add(BatchNormalization()) 
+        model.add(Activation('relu'))
+        model.add(MaxPooling2D((2,2)))  # Conv7 - 4x2x128
+        model.add(Flatten())
+        model.add(Dense(256,activation='relu',kernel_initializer='he_normal'))
+        model.add(BatchNormalization()) # FC1 - 256
+        model.add(Dropout(0.3)) # FC1 - 256
+        model.add(Dense(nb_classes,activation='softmax',kernel_initializer='he_normal'))
+        if weightsPath: model.load_weights(weightsPath)
+        print(model.summary())
+        return model
+
 #       model.add
 
 

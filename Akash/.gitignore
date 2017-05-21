@@ -1,0 +1,4 @@
+*.swo
+preview/
+previewtest/
+tensorboardLogs/
