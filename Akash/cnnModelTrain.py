@@ -35,6 +35,7 @@ optim = args[4]
 lr = float(args[5])
 decay = float(args[6])
 dropout = float(args[7])
+lrAnneal = float(args[8])
 
 # Setting directory paths
 trainDataPath = os.path.join(datasetPath,'train')
@@ -92,8 +93,8 @@ elif optim=='adam':
   foptim = Adam(lr=lr,decay=decay)
 
 # name to save model
-modelName = '{}class_{}augment{}dropout{}lr{}decay{}'.format(nb_classes,optim,
-        augmentFactor,dropout,lr,decay)
+modelName = '{}class_{}augment{}dropout{}lr{}anneal{}'.format(nb_classes,optim,
+        augmentFactor,dropout,lr,lrAnneal)
 modelName = 'setiNet_256x512_'+modelName  
 # model = model_specs.fc_1024_256_256.build(X_train.shape[1],nb_classes)
 model = model_specs.setiNet.build((256,512,1),nb_classes,dropout=dropout)
@@ -116,11 +117,20 @@ def step_decay(epoch):
     lrate = initial_lrate * math.pow(drop, math.floor((1+epoch)/epochs_drop))
     print("Learning rate: %0.2f",lrate)
     return lrate
-lrate = LearningRateScheduler(step_decay)
+
+def anneal_decay(epoch):
+    initial_lrate = lr
+    beta = lrAnneal
+    lrate = initial_lrate / (1 + beta*epoch)
+    print("Learning rate: ",lrate)
+    return lrate
+
+#lrate = LearningRateScheduler(step_decay)
+lrate = LearningRateScheduler(anneal_decay)
 # reducing learning rate if performance stalls
 reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2,patience=5, min_lr=1e-7)
 # early stopping?
-earlyStop = EarlyStopping(monitor='val_loss',min_delta=0.1,patience=5)
+earlyStop = EarlyStopping(monitor='val_loss',min_delta=0.05,patience=5)
 # tensorboard
 tensorboard = TensorBoard(log_dir='./tensorboardLogs/'+modelName,histogram_freq=2,write_images=True)
                 
@@ -138,7 +148,7 @@ history = model.fit_generator(train_generator,
         steps_per_epoch = train_generator.n//batch_size*augmentFactor,
         epochs=nb_epoch,validation_data=validation_generator,
         validation_steps=validation_generator.n//batch_size,
-        callbacks=[checkPointer,lrate,tensorboard])
+        callbacks=[checkPointer,lrate,tensorboard,earlyStop])
 
 #### TO DO: Complete modifying this ####
 
