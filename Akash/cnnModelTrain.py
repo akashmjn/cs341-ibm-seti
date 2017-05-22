@@ -1,7 +1,7 @@
 # Training a CNN on images
 from __future__ import print_function
 from keras.preprocessing.image import ImageDataGenerator, load_img, img_to_array
-from keras.optimizers import SGD,RMSprop
+from keras.optimizers import *
 from keras.callbacks import *
 from keras.utils import np_utils
 from keras import backend as K
