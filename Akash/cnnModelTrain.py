@@ -24,7 +24,7 @@ from sklearn import svm
 from sklearn.externals import joblib
 
 # Taking in command line args
-# python cnnModelTrain.py DATASETPATH AUGMENTFACTOR nEPOCHS OPTIM LR DECAY 
+# python cnnModelTrain.py DATASETPATH AUGMENTFACTOR nEPOCHS OPTIM LR DECAY DROPOUT 
 args = sys.argv
 
 batch_size = 32
@@ -34,6 +34,7 @@ nb_epoch = int(args[3])
 optim = args[4]
 lr = float(args[5])
 decay = float(args[6])
+dropout = float(args[7])
 
 # Setting directory paths
 trainDataPath = os.path.join(datasetPath,'train')
@@ -87,12 +88,15 @@ if optim=='sgd':
   foptim = SGD(lr=lr, decay=decay, momentum=0.9, nesterov=True)
 elif optim=='rmsprop':
   foptim = RMSprop(lr=lr,rho=0.9,epsilon=1e-8,decay=decay)
+elif optim=='adam':
+  foptim = Adam(lr=lr,decay=decay)
 
 # name to save model
-modelName = '{}class_{}lr{}decay{}'.format(nb_classes,optim,lr,decay)
+modelName = '{}class_{}augment{}dropout{}lr{}decay{}'.format(nb_classes,optim,
+        augmentFactor,dropout,lr,decay)
 modelName = 'setiNet_256x512_'+modelName  
 # model = model_specs.fc_1024_256_256.build(X_train.shape[1],nb_classes)
-model = model_specs.setiNet.build((256,512,1),nb_classes)
+model = model_specs.setiNet.build((256,512,1),nb_classes,dropout=dropout)
 # Fixing some keras bug
 keras.backend.get_session().run(tf.global_variables_initializer())
 model.compile(loss='categorical_crossentropy',

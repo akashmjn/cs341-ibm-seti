@@ -61,7 +61,7 @@ class vgg_fine_tune:
 ### Small CNN model directly trained on images
 class setiNet:
     @staticmethod
-    def build(input_shape,nb_classes,weightsPath=None):
+    def build(input_shape,nb_classes,dropout=0.3,weightsPath=None):
         model = Sequential()
         model.add(Conv2D(8,(3,3),padding='same',input_shape=input_shape,kernel_initializer="he_normal"))
         model.add(BatchNormalization())  
@@ -94,7 +94,7 @@ class setiNet:
         model.add(Flatten())
         model.add(Dense(256,activation='relu',kernel_initializer='he_normal'))
         model.add(BatchNormalization()) # FC1 - 256
-        model.add(Dropout(0.3)) # FC1 - 256
+        model.add(Dropout(dropout)) # FC1 - 256
         model.add(Dense(nb_classes,activation='softmax',kernel_initializer='he_normal'))
         if weightsPath: model.load_weights(weightsPath)
         print(model.summary())
