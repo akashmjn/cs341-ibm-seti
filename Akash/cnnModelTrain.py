@@ -94,11 +94,11 @@ elif optim=='adam':
   foptim = Adam(lr=lr,decay=decay)
 
 # name to save model
-modelName = '{}class_{}augment{}dropout{0:.2f}lr{:.2e}anneal{0:.2f}'.format(nb_classes,optim,
+modelName = '{}class_{}augment{}dropout{:.2f}lr{:.2e}anneal{:.2f}'.format(nb_classes,optim,
         augmentFactor,dropout,lr,lrAnneal)
-modelName = 'setiNet_256x512_'+modelName  
+modelName = 'setiNetv2_256x512_'+modelName  
 # model = model_specs.fc_1024_256_256.build(X_train.shape[1],nb_classes)
-model = model_specs.setiNet.build((256,512,1),nb_classes,dropout=dropout,init=kernel_init)
+model = model_specs.setiNet_v2.build((256,512,1),nb_classes,dropout=dropout,init=kernel_init)
 # Fixing some keras bug
 keras.backend.get_session().run(tf.global_variables_initializer())
 model.compile(loss='categorical_crossentropy',
@@ -133,7 +133,7 @@ reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2,patience=5, min_lr=
 # early stopping?
 earlyStop = EarlyStopping(monitor='val_loss',min_delta=0.01,patience=10)
 # tensorboard
-tensorboard = TensorBoard(log_dir='./tensorboardLogs-2/'+modelName,histogram_freq=2,write_images=True)
+tensorboard = TensorBoard(log_dir='./tensorboardLogs-3/'+modelName,histogram_freq=2,write_images=True)
                 
 
 #### Training Classification or regression models #####

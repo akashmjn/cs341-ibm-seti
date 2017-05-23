@@ -138,14 +138,15 @@ class setiNet_v2:
         model.add(MaxPooling2D((2,4),name='block5_pool')) # Convblock5 - 4x4x64
         model.add(Conv2D(128,(4,4),padding='valid',kernel_initializer=init))
         model.add(BatchNormalization()) 
+        model.add(Dropout(dropout)) 
         model.add(Activation('relu',name='block6_activation')) # Convblock6 - 1x1x128 : fully convolutional
         model.add(Flatten())
         model.add(Dense(64,activation='relu',kernel_initializer=init))
         model.add(BatchNormalization()) # FC1 - 64
-        model.add(Dropout(dropout)) 
+        #model.add(Dropout(dropout)) 
         model.add(Dense(16,activation='relu',kernel_initializer=init))
         model.add(BatchNormalization()) # FC2 - 16
-        model.add(Dropout(dropout)) 
+        #model.add(Dropout(dropout)) 
         model.add(Dense(nb_classes,activation='softmax',kernel_initializer=init))
         if weightsPath: model.load_weights(weightsPath)
         print(model.summary())
