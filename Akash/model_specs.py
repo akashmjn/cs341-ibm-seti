@@ -61,47 +61,95 @@ class vgg_fine_tune:
 ### Small CNN model directly trained on images
 class setiNet:
     @staticmethod
-    def build(input_shape,nb_classes,dropout=0.3,weightsPath=None):
+    def build(input_shape,nb_classes,dropout=0.3,init='he_normal',weightsPath=None):
         model = Sequential()
-        model.add(Conv2D(8,(3,3),padding='same',input_shape=input_shape,kernel_initializer="he_normal"))
+        model.add(Conv2D(8,(3,3),padding='same',input_shape=input_shape,kernel_initializer=init))
         model.add(BatchNormalization())  
         model.add(Activation('relu'))
         model.add(MaxPooling2D((2,2)))  # Conv1 - 256x128x8
-        model.add(Conv2D(8,(3,3),padding='same',kernel_initializer="he_normal"))
+        model.add(Conv2D(8,(3,3),padding='same',kernel_initializer=init))
         model.add(BatchNormalization()) 
         model.add(Activation('relu'))
         model.add(MaxPooling2D((2,2)))  # Conv2 - 128x64x8
-        model.add(Conv2D(32,(3,3),padding='same',kernel_initializer="he_normal"))
+        model.add(Conv2D(32,(3,3),padding='same',kernel_initializer=init))
         model.add(BatchNormalization()) 
         model.add(Activation('relu'))
         model.add(MaxPooling2D((2,2)))  # Conv3 - 64x32x32
-        model.add(Conv2D(32,(3,3),padding='same',kernel_initializer="he_normal"))
+        model.add(Conv2D(32,(3,3),padding='same',kernel_initializer=init))
         model.add(BatchNormalization()) 
         model.add(Activation('relu'))
         model.add(MaxPooling2D((2,2)))  # Conv4 - 32x16x32
-        model.add(Conv2D(64,(3,3),padding='same',kernel_initializer="he_normal"))
+        model.add(Conv2D(64,(3,3),padding='same',kernel_initializer=init))
         model.add(BatchNormalization()) 
         model.add(Activation('relu'))
         model.add(MaxPooling2D((2,2)))  # Conv5 - 16x8x64
-        model.add(Conv2D(64,(3,3),padding='same',kernel_initializer="he_normal"))
+        model.add(Conv2D(64,(3,3),padding='same',kernel_initializer=init))
         model.add(BatchNormalization()) 
         model.add(Activation('relu'))
         model.add(MaxPooling2D((2,2)))  # Conv6 - 8x4x64
-        model.add(Conv2D(128,(3,3),padding='same',kernel_initializer="he_normal"))
+        model.add(Conv2D(128,(3,3),padding='same',kernel_initializer=init))
         model.add(BatchNormalization()) 
         model.add(Activation('relu'))
         model.add(MaxPooling2D((2,2)))  # Conv7 - 4x2x128
         model.add(Flatten())
-        model.add(Dense(256,activation='relu',kernel_initializer='he_normal'))
+        model.add(Dense(256,activation='relu',kernel_initializer=init))
         model.add(BatchNormalization()) # FC1 - 256
         model.add(Dropout(dropout)) # FC1 - 256
-        model.add(Dense(nb_classes,activation='softmax',kernel_initializer='he_normal'))
+        model.add(Dense(nb_classes,activation='softmax',kernel_initializer=init))
         if weightsPath: model.load_weights(weightsPath)
         print(model.summary())
         return model
 
-#       model.add
-
+### CNN model directly trained on images
+### Modified from setiNet with consecutive conv blocks, aggressive pooling
+### change of aspect ratio, and a fully conv structure
+class setiNet_v2:
+    @staticmethod
+    def build(input_shape,nb_classes,dropout=0.3,init='he_normal',weightsPath=None):
+        model = Sequential()
+        model.add(Conv2D(8,(3,3),padding='same',input_shape=input_shape,kernel_initializer=init))
+        model.add(BatchNormalization())  
+        model.add(Activation('relu'))
+        model.add(Conv2D(8,(3,3),padding='same',kernel_initializer=init))
+        model.add(BatchNormalization()) 
+        model.add(Activation('relu'))
+        model.add(MaxPooling2D((4,4),name='block1_pool'))  # Convblock1 - 64x128x8
+        model.add(Conv2D(16,(3,3),padding='same',kernel_initializer=init))
+        model.add(BatchNormalization()) 
+        model.add(Activation('relu'))
+        model.add(Conv2D(16,(3,3),padding='same',kernel_initializer=init))
+        model.add(BatchNormalization()) 
+        model.add(Activation('relu'))
+        model.add(MaxPooling2D((2,2),name='block2_pool'))  # Convblock2 - 32x64x16
+        model.add(Conv2D(32,(3,3),padding='same',kernel_initializer=init))
+        model.add(BatchNormalization()) 
+        model.add(Activation('relu'))
+        model.add(Conv2D(32,(3,3),padding='same',kernel_initializer=init))
+        model.add(BatchNormalization()) 
+        model.add(Activation('relu'))
+        model.add(MaxPooling2D((2,2),name='block3_pool'))  # Convblock3 - 16x32x32
+        model.add(Conv2D(64,(3,3),padding='same',kernel_initializer=init))
+        model.add(BatchNormalization()) 
+        model.add(Activation('relu'))
+        model.add(MaxPooling2D((2,2),name='block4_pool'))  # Convblock4 - 8x16x64
+        model.add(Conv2D(64,(3,3),padding='same',kernel_initializer=init))
+        model.add(BatchNormalization()) 
+        model.add(Activation('relu'))
+        model.add(MaxPooling2D((2,4),name='block5_pool')) # Convblock5 - 4x4x64
+        model.add(Conv2D(128,(4,4),padding='valid',kernel_initializer=init))
+        model.add(BatchNormalization()) 
+        model.add(Activation('relu',name='block6_activation')) # Convblock6 - 1x1x128 : fully convolutional
+        model.add(Flatten())
+        model.add(Dense(64,activation='relu',kernel_initializer=init))
+        model.add(BatchNormalization()) # FC1 - 64
+        model.add(Dropout(dropout)) 
+        model.add(Dense(16,activation='relu',kernel_initializer=init))
+        model.add(BatchNormalization()) # FC2 - 16
+        model.add(Dropout(dropout)) 
+        model.add(Dense(nb_classes,activation='softmax',kernel_initializer=init))
+        if weightsPath: model.load_weights(weightsPath)
+        print(model.summary())
+        return model
 
 ## FC classifier network  trained on activations
 #model_class = Sequential()

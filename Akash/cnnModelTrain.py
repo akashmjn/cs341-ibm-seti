@@ -36,6 +36,7 @@ lr = float(args[5])
 decay = float(args[6])
 dropout = float(args[7])
 lrAnneal = float(args[8])
+kernel_init = args[9]
 
 # Setting directory paths
 trainDataPath = os.path.join(datasetPath,'train')
@@ -93,11 +94,11 @@ elif optim=='adam':
   foptim = Adam(lr=lr,decay=decay)
 
 # name to save model
-modelName = '{}class_{}augment{}dropout{}lr{}anneal{}'.format(nb_classes,optim,
+modelName = '{}class_{}augment{}dropout{0:.2f}lr{:.2e}anneal{0:.2f}'.format(nb_classes,optim,
         augmentFactor,dropout,lr,lrAnneal)
 modelName = 'setiNet_256x512_'+modelName  
 # model = model_specs.fc_1024_256_256.build(X_train.shape[1],nb_classes)
-model = model_specs.setiNet.build((256,512,1),nb_classes,dropout=dropout)
+model = model_specs.setiNet.build((256,512,1),nb_classes,dropout=dropout,init=kernel_init)
 # Fixing some keras bug
 keras.backend.get_session().run(tf.global_variables_initializer())
 model.compile(loss='categorical_crossentropy',
@@ -130,9 +131,9 @@ lrate = LearningRateScheduler(anneal_decay)
 # reducing learning rate if performance stalls
 reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2,patience=5, min_lr=1e-7)
 # early stopping?
-earlyStop = EarlyStopping(monitor='val_loss',min_delta=0.05,patience=5)
+earlyStop = EarlyStopping(monitor='val_loss',min_delta=0.01,patience=10)
 # tensorboard
-tensorboard = TensorBoard(log_dir='./tensorboardLogs/'+modelName,histogram_freq=2,write_images=True)
+tensorboard = TensorBoard(log_dir='./tensorboardLogs-2/'+modelName,histogram_freq=2,write_images=True)
                 
 
 #### Training Classification or regression models #####
@@ -148,7 +149,7 @@ history = model.fit_generator(train_generator,
         steps_per_epoch = train_generator.n//batch_size*augmentFactor,
         epochs=nb_epoch,validation_data=validation_generator,
         validation_steps=validation_generator.n//batch_size,
-        callbacks=[checkPointer,lrate,tensorboard,earlyStop])
+        callbacks=[checkPointer,lrate,tensorboard])
 
 #### TO DO: Complete modifying this ####
 
