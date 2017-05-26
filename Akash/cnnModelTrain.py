@@ -37,14 +37,15 @@ decay = float(args[6])
 dropout = float(args[7])
 lrAnneal = float(args[8])
 kernel_init = args[9]
+tbpath = './tensorboardLogs-2class/'
 
 # Setting directory paths
 trainDataPath = os.path.join(datasetPath,'train')
 valDataPath = os.path.join(datasetPath,'validation')
 testDataPath = os.path.join(datasetPath,'test')
 # Classes to use
-nb_classes = 4
-classList = ['0-noise','2-narrowband','3-narrowbanddrd','5-squiggle']
+nb_classes = 2
+classList = ['0-noise','7-signal-basic']
 
 #### Preparing data #### 
 # Creating augmentation objects
@@ -133,7 +134,7 @@ reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2,patience=5, min_lr=
 # early stopping?
 earlyStop = EarlyStopping(monitor='val_loss',min_delta=0.01,patience=10)
 # tensorboard
-tensorboard = TensorBoard(log_dir='./tensorboardLogs-3/'+modelName,histogram_freq=2,write_images=True)
+tensorboard = TensorBoard(log_dir=tbpath+modelName,histogram_freq=2,write_images=True)
                 
 
 #### Training Classification or regression models #####

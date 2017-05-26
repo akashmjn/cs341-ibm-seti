@@ -3,7 +3,7 @@ import numpy as np
 
 datasetPath = "../data/imagesDataset_512x256_8/"
 augmentFactor = 2
-nEpochs = 20
+nEpochs = 50
 optim = 'adam'
 dropout = 0.6
 lrAnneal = 0.07
@@ -25,9 +25,9 @@ decay = 1e-7
 #        augmentFactor,nEpochs,optim,lr,decay,dropout,lrAnneal,kernel_init))
 
 ## Params for random search 
-lrLims = (-5.5,-4)
+lrLims = (-5,-4)
 annealLims = (0.05,0.2)
-dropoutLims = (0.2,0.7)
+dropoutLims = (0.3,0.6)
 
 ## Random search
 for i in range(10):
