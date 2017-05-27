@@ -37,15 +37,15 @@ decay = float(args[6])
 dropout = float(args[7])
 lrAnneal = float(args[8])
 kernel_init = args[9]
-tbpath = './tensorboardLogs-2class/'
+tbpath = './tensorboardLogs-3class-onlysignals/'
 
 # Setting directory paths
 trainDataPath = os.path.join(datasetPath,'train')
 valDataPath = os.path.join(datasetPath,'validation')
 testDataPath = os.path.join(datasetPath,'test')
 # Classes to use
-nb_classes = 2
-classList = ['0-noise','7-signal-basic']
+nb_classes = 3
+classList = ['2-narrowband','3-narrowbanddrd','5-squiggle']
 
 #### Preparing data #### 
 # Creating augmentation objects
@@ -78,7 +78,7 @@ test_datagen.fit(trainDataArray)
 
 # Initializing augmentation objects
 ## Have marked out for sanitycheck. Change after!
-train_generator = test_datagen.flow_from_directory(directory=trainDataPath,batch_size=batch_size,
+train_generator = train_datagen.flow_from_directory(directory=trainDataPath,batch_size=batch_size,
         class_mode='categorical',classes=classList,target_size=(256,512),color_mode='grayscale')
 
 validation_generator = test_datagen.flow_from_directory(directory=valDataPath,batch_size=batch_size,
