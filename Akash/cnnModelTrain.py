@@ -46,9 +46,10 @@ testDataPath = os.path.join(datasetPath,'test')
 tbpath = './tblogs-{}/'.format(run_name)
 modelpath = '../savedModels/cnnModels-{}/'.format(run_name)
 os.system('mkdir -p {}'.format(modelpath))
+weightspath = "../savedModels/cnnModels-2class-aug-fullsearch/setiNetv2_256x512_2class_adamaugment2dropout0.47lr2.76e-04anneal0.11.hdf5"
 # Classes to use
-nb_classes = 3
-classList = ['2-narrowband','3-narrowbanddrd','5-squiggle']
+nb_classes = 2
+classList = ['0-noise','7-signal-basic']
 
 #### Preparing data #### 
 # Creating augmentation objects
@@ -102,7 +103,8 @@ modelName = '{}class_{}augment{}dropout{:.2f}lr{:.2e}anneal{:.2f}'.format(nb_cla
         augmentFactor,dropout,lr,lrAnneal)
 modelName = 'setiNetv2_256x512_'+modelName  
 # model = model_specs.fc_1024_256_256.build(X_train.shape[1],nb_classes)
-model = model_specs.setiNet_v2.build((256,512,1),nb_classes,dropout=dropout,init=kernel_init)
+model = model_specs.setiNet_v2.build((256,512,1),nb_classes,dropout=dropout,init=kernel_init,
+        weightsPath=weightspath)
 # Fixing some keras bug
 keras.backend.get_session().run(tf.global_variables_initializer())
 model.compile(loss='categorical_crossentropy',
@@ -126,7 +128,7 @@ def step_decay(epoch):
 def anneal_decay(epoch):
     initial_lrate = lr
     beta = lrAnneal
-    lrate = initial_lrate / (1 + beta*epoch)
+    lrate = initial_lrate / (1 + beta*(epoch+30))
     print("Learning rate: ",lrate)
     return lrate
 
