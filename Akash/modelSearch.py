@@ -2,7 +2,8 @@ import os,sys
 import numpy as np
 
 datasetPath = "../data/imagesDataset_512x256_8/"
-augmentFactor = 2
+run_name = "only3signals-fullsearch"
+augmentFactor = 3
 nEpochs = 50
 optim = 'adam'
 dropout = 0.6
@@ -25,9 +26,9 @@ decay = 1e-7
 #        augmentFactor,nEpochs,optim,lr,decay,dropout,lrAnneal,kernel_init))
 
 ## Params for random search 
-lrLims = (-5,-4)
+lrLims = (-4.5,-3.5)
 annealLims = (0.05,0.2)
-dropoutLims = (0.3,0.6)
+dropoutLims = (0.2,0.6)
 
 ## Random search
 for i in range(10):
@@ -36,8 +37,8 @@ for i in range(10):
     lrAnneal = np.random.uniform(annealLims[0],annealLims[1])
     dropout = np.random.uniform(dropoutLims[0],dropoutLims[1])
     print "\n\n ##### Running a new run with ###### "
-    print '{} {} {} {} {:.2e} {:.2f} {:.2f} {}\n'.format(datasetPath,
+    print '{} {} {} {} {} {:.2e} {:.2f} {:.2f} {}\n'.format(datasetPath,run_name,
         augmentFactor,nEpochs,optim,lr,lrAnneal,dropout,kernel_init)
-    os.system('python cnnModelTrain.py {} {} {} {} {} {} {} {} {}'.format(datasetPath,
+    os.system('python cnnModelTrain.py {} {} {} {} {} {} {} {} {} {}'.format(datasetPath,run_name,
         augmentFactor,nEpochs,optim,lr,decay,dropout,lrAnneal,kernel_init))
 

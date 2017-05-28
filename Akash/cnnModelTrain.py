@@ -29,20 +29,23 @@ args = sys.argv
 
 batch_size = 32
 datasetPath = args[1]
-augmentFactor = int(args[2])
-nb_epoch = int(args[3])
-optim = args[4]
-lr = float(args[5])
-decay = float(args[6])
-dropout = float(args[7])
-lrAnneal = float(args[8])
-kernel_init = args[9]
-tbpath = './tensorboardLogs-3class-onlysignals/'
+run_name = args[2]
+augmentFactor = int(args[3])
+nb_epoch = int(args[4])
+optim = args[5]
+lr = float(args[6])
+decay = float(args[7])
+dropout = float(args[8])
+lrAnneal = float(args[9])
+kernel_init = args[10]
 
 # Setting directory paths
 trainDataPath = os.path.join(datasetPath,'train')
 valDataPath = os.path.join(datasetPath,'validation')
 testDataPath = os.path.join(datasetPath,'test')
+tbpath = './tblogs-{}/'.format(run_name)
+modelpath = '../savedModels/cnnModels-{}/'.format(run_name)
+os.system('mkdir -p {}'.format(modelpath))
 # Classes to use
 nb_classes = 3
 classList = ['2-narrowband','3-narrowbanddrd','5-squiggle']
