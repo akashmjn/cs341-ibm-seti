@@ -17,7 +17,7 @@ from keras.utils import np_utils
 
 from PIL import Image
 
-def saveImageFromSpec(spec,imsize,binFactor,save=False,filename=None):
+def saveImageFromSpec(spec,imsize,binFactor,colmap=None,save=False,filename=None):
     """
     Saves an image generated from an array containing a spectrogram
     """
@@ -31,7 +31,8 @@ def saveImageFromSpec(spec,imsize,binFactor,save=False,filename=None):
     fig.add_axes(ax)
     # fig, ax = plt.subplots(figsize=(20, 10))
     # ax.imshow(np.log(spec), aspect = 0.5*float(spec.shape[1]) / spec.shape[0])
-    plt.set_cmap('jet')
+    if colmap is not None:
+        plt.set_cmap(colmap)
     ax.imshow(np.log(spec), aspect = 'auto')
     fig.savefig("{}.jpg".format(filename),dpi=dpi)
     plt.close('all')
@@ -46,9 +47,9 @@ def modelActivations(model,layer_name,input,poolfit=None,show=False,save=False,)
 
     model_selection = Model(input=model.input, output=model.get_layer(layer_name).output)
 
-    if (len(input.shape) != 4 or input.shape[3] != 3 or 
+    if (len(input.shape) != 4 or input.shape[3] not in [1,3] or
         input.dtype not in ['float32','float64']):
-        raise IndexError("Input should be float array of kxmxnx3: \n")
+        raise IndexError("Input should be float array of kxmxnx3 or kxmxnx1: \n")
     output = model_selection.predict(input)
 
     # Running a coarse pooling to fit activations to the target size 
@@ -162,16 +163,25 @@ def generateAllActivations(dirpath,savedir,layer_name,poolfit=None):
             fileBatch[j] = imgfile
 
 
-def _createDatasetHelper(x_array,y_array,id_array,LabelDict,fileList,basePath,loaderFn,prompt):
-    nFiles = len(fileList)
-    for i in range(nFiles):
-        filename = fileList[i]
-        print('\r{} {} / {}'.format(prompt,i+1,nFiles)),
+def _createDatasetHelper(x_array,y_array,id_array,fileListDF,basePath,loaderFn,dataset):
+    # Reading in all the data labels into a dict for use below
+    # key : file_index (000100 etc.) 
+    Label_dict = collections.defaultdict(list)
+    for i in fileListDF[fileListDF['dataset']==dataset].index:
+        Label_dict[fileListDF.ix[i]['file_index']]=fileListDF.ix[i]['label']
+
+    nFiles = sum(fileListDF['dataset']==dataset)
+    arrayIndex = 0
+    for i in fileListDF[fileListDF['dataset']==dataset].index:
+        #filename = fileList[i]
+        filename = fileListDF.ix[i]['file_index']+'.jpg'
+        print('\r{} {} / {}'.format(dataset+' set:',arrayIndex+1,nFiles)),
         dataPoint = loaderFn(os.path.join(basePath,filename))
-        x_array[i,:] = dataPoint
+        x_array[arrayIndex,:] = dataPoint
         fileID = filename.split(".")[0]
         id_array.append(fileID)
-        y_array[i] = LabelDict[fileID]  
+        y_array[arrayIndex] = Label_dict[fileID]  
+        arrayIndex += 1
     print('\n')
 
 def _printCountDictHelper(countDict,message):
@@ -181,39 +191,43 @@ def _printCountDictHelper(countDict,message):
 
 ### Functions to load in and combine all model activations into datasets
 
-def createDataset(sourcePath,fileListPath,nval,ntest,destFilename,loadImages,ntrain=None):
+def createDataset(sourcePath,fileListPath,destFilename,loadImages,grayscale=False,ntrain=None):
     # Loading in list of files
+    fileListDF = pd.read_csv(fileListPath,dtype={'file_index':str})
     files = [f for f in os.listdir(sourcePath)]
     ext = list(set([f.split('.')[1] for f in files]))[0]
     print 'Picking files of extension %s' % ext
     files = [f for f in files if f.endswith(ext)]
     
-    # If ntrain specified, this is used to create datasets of smaller
-    # size by randomly picking files from the entire file list
-    if ntrain:
-        nFull = min(len(files),ntrain+ntest+nval)
-        np.random.seed(2)
-        sampleIndices = np.random.permutation(range(len(files)))[0:nFull]
-        files = [ files[i] for i in sampleIndices ]
-    else:
-        ntrain = len(files) - (ntest+nval)
-    n = len(files)
+#    # If ntrain specified, this is used to create datasets of smaller
+#    # size by randomly picking files from the entire file list
+#    if ntrain:
+#        nFull = min(len(files),ntrain+ntest+nval)
+#        np.random.seed(2)
+#        sampleIndices = np.random.permutation(range(len(files)))[0:nFull]
+#        files = [ files[i] for i in sampleIndices ]
+#    else:
+#        ntrain = len(files) - (ntest+nval)
     
-    # Splitting training and test data
+    # Numbering training and test data
+    n = len(files)
     print 'The number of files is %d' %(n)    
+    ntrain = sum(fileListDF['dataset']=='train')
+    nval = sum(fileListDF['dataset']=='validation')
+    ntest = sum(fileListDF['dataset']=='test')
     # ntrain = n - int(n*traintestSplit)
     # ntest  = int(n*traintestSplit)
 
     # Reading in all the data labels into a dict for use below
     # key : file_index (000100 etc.) 
     Label_dict = collections.defaultdict(list)
-    fileListDF = pd.read_csv(fileListPath,dtype={'file_index':str})
     for i in range(len(fileListDF.index)):
         Label_dict[fileListDF.ix[i]['file_index']]=fileListDF.ix[i]['label']
 
     if loadImages: 
-        size = image.img_to_array(image.load_img(os.path.join(sourcePath,files[0]))).shape
-        loaderFn = lambda x: image.img_to_array(image.load_img(x))
+        size = image.img_to_array(image.load_img(os.path.join(sourcePath,files[0]),
+            grayscale=grayscale)).shape
+        loaderFn = lambda x: image.img_to_array(image.load_img(x,grayscale=grayscale))
     else:
         size = np.load(os.path.join(sourcePath,files[0])).flatten().shape
         loaderFn = lambda x: np.load(x).flatten()
@@ -224,20 +238,21 @@ def createDataset(sourcePath,fileListPath,nval,ntest,destFilename,loadImages,ntr
     x_train = np.zeros((ntrain,)+size)
     y_train = np.zeros((ntrain,))
     train_ids = []
-    _createDatasetHelper(x_train,y_train,train_ids,
-            Label_dict,files[0:ntrain],sourcePath,loaderFn,'Training set')
+    _createDatasetHelper(x_train,y_train,train_ids,fileListDF,sourcePath,loaderFn,'train')
     
     x_val = np.zeros((nval,)+size)
     y_val = np.zeros((nval,))
     val_ids = []
-    _createDatasetHelper(x_val,y_val,val_ids,
-            Label_dict,files[ntrain:ntrain+nval],sourcePath,loaderFn,'Validation set')
+    _createDatasetHelper(x_val,y_val,val_ids,fileListDF,sourcePath,loaderFn,'validation')
+#    _createDatasetHelper(x_val,y_val,val_ids,
+#            Label_dict,files[ntrain:ntrain+nval],sourcePath,loaderFn,'Validation set')
 
     x_test = np.zeros((ntest,)+size)
     y_test = np.zeros((ntest,))
     test_ids = []
-    _createDatasetHelper(x_test,y_test,test_ids,
-            Label_dict,files[ntrain+nval:ntrain+nval+ntest],sourcePath,loaderFn,'Test set')
+    _createDatasetHelper(x_test,y_test,test_ids,fileListDF,sourcePath,loaderFn,'test')
+#    _createDatasetHelper(x_test,y_test,test_ids,
+#            Label_dict,files[ntrain+nval:ntrain+nval+ntest],sourcePath,loaderFn,'Test set')
 
     # distribution of labels in train / test
     count_dict_train = {}
@@ -354,13 +369,13 @@ def loadDataset(hdf5filepath,scale=True,ntrain=None,fixSkew=None,subsetClasses=N
         means = np.mean(x_train,axis=0)
         stddev = np.std(x_train,axis=0)
         # Preventing zero division
-        stddev[stddev<1e-3] = 1
+        # stddev[stddev<1e-3] = 1
         x_train -= means
-        x_train /= stddev
+        x_train /= (stddev+1e-3)
         x_val -= means
-        x_val /= stddev
+        x_val /= (stddev+1e-3)
         x_test -= means
-        x_test /= stddev
+        x_test /= (stddev+1e-3)
 
     # input shape
     act_shape = x_train[0].shape

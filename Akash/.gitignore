@@ -1,0 +1,6 @@
+*.swo
+preview/
+previewtest/
+tensorboardLogs/
+tensorboardLogs-2/
+tblogs-*
