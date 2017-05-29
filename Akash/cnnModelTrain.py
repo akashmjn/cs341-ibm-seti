@@ -32,12 +32,13 @@ datasetPath = args[1]
 run_name = args[2]
 augmentFactor = int(args[3])
 nb_epoch = int(args[4])
-optim = args[5]
-lr = float(args[6])
-decay = float(args[7])
-dropout = float(args[8])
-lrAnneal = float(args[9])
-kernel_init = args[10]
+epoch_offset = int(args[5])
+optim = args[6]
+lr = float(args[7])
+decay = float(args[8])
+dropout = float(args[9])
+lrAnneal = float(args[10])
+kernel_init = args[11]
 
 # Setting directory paths
 trainDataPath = os.path.join(datasetPath,'train')
@@ -70,18 +71,7 @@ for i in range(len(files)//5):
 train_datagen.fit(trainDataArray)
 test_datagen.fit(trainDataArray)
 
-### Loading in validation data as array 
-#subsetClasses = {0.0:0.0,2.0:1.0,3.0:2.0,5.0:3.0}
-#dataset = cu.datautils.loadDataset(os.path.join(datasetPath,'imagesDataset_512x256_8.h5'),
-#                                        subsetClasses=subsetClasses) # Hardcoded, should change
-#X_val = dataset['x_val']
-#Y_val = dataset['y_val']
-#Y_val = np_utils.to_categorical(Y_val, nb_classes)
-#val_ids = dataset['val_ids']
-#dataset = None   # free up memory
-
 # Initializing augmentation objects
-## Have marked out for sanitycheck. Change after!
 train_generator = train_datagen.flow_from_directory(directory=trainDataPath,batch_size=batch_size,
         class_mode='categorical',classes=classList,target_size=(256,512),color_mode='grayscale')
 
@@ -99,22 +89,22 @@ elif optim=='adam':
   foptim = Adam(lr=lr,decay=decay)
 
 # name to save model
-modelName = '{}class_{}augment{}dropout{:.2f}lr{:.2e}anneal{:.2f}'.format(nb_classes,optim,
-        augmentFactor,dropout,lr,lrAnneal)
+modelName = '{}class_{}offset{}augment{}dropout{:.2f}lr{:.2e}anneal{:.2f}'.format(nb_classes,optim,
+        epoch_offset,augmentFactor,dropout,lr,lrAnneal)
 modelName = 'setiNetv2_256x512_'+modelName  
 # model = model_specs.fc_1024_256_256.build(X_train.shape[1],nb_classes)
 model = model_specs.setiNet_v2.build((256,512,1),nb_classes,dropout=dropout,init=kernel_init,
         weightsPath=weightspath)
-# Fixing some keras bug
-keras.backend.get_session().run(tf.global_variables_initializer())
-model.compile(loss='categorical_crossentropy',
-              optimizer=foptim,
-              metrics=['categorical_accuracy'])
+## Fixing some keras bug
+#keras.backend.get_session().run(tf.global_variables_initializer())
+#model.compile(loss='categorical_crossentropy',
+#              optimizer=foptim,
+#              metrics=['categorical_accuracy'])
 
 #### Definining a bunch of callbacks monitoring/lr scheduling etc. ####
 
 # Saves model with best validation loss
-checkPointer = ModelCheckpoint(filepath=modelPath+modelName+'.hdf5',
+checkPointer = ModelCheckpoint(filepath=modelpath+modelName+'.hdf5',
                                monitor='val_loss',verbose=1, save_best_only=True)
 # learning rate scheduling
 def step_decay(epoch):
@@ -128,7 +118,7 @@ def step_decay(epoch):
 def anneal_decay(epoch):
     initial_lrate = lr
     beta = lrAnneal
-    lrate = initial_lrate / (1 + beta*(epoch+30))
+    lrate = initial_lrate / (1 + beta*(epoch+epoch_offset))
     print("Learning rate: ",lrate)
     return lrate
 
@@ -151,41 +141,9 @@ print("Training a classifier with NLL loss\n")
 #        epochs=nb_epoch,validation_data=(X_val,Y_val),
 #        callbacks=[checkPointer,lrate,tensorboard])
 
-history = model.fit_generator(train_generator,
+history = model.fit_generator(train_generator,class_weight={0:1.0,1:1.0},
         steps_per_epoch = train_generator.n//batch_size*augmentFactor,
         epochs=nb_epoch,validation_data=validation_generator,
         validation_steps=validation_generator.n//batch_size,
         callbacks=[checkPointer,lrate,tensorboard])
-
-#### TO DO: Complete modifying this ####
-
-#best_model = keras.models.load_model("./savedModels/"+modelName+'.hdf5')
-#test_prediction = np.argmax(best_model.predict(X_test),axis=1)
-#print("\nPrinting results on test dataset for best saved model: \n")
-#temp = classification_report(y_test,test_prediction)
-#print(temp)
-#temp = confusion_matrix(y_test,test_prediction)
-#print(temp)
-#print("Test accuracy: %0.2f " % sklearn.metrics.accuracy_score(y_test,test_prediction))
-#
-#hist = history.history
-#np.save("./savedModels/"+modelName+'.npy',hist)
-#
-#plt.plot(hist['categorical_accuracy'])
-#plt.plot(hist['val_categorical_accuracy'])
-#plt.title('model accuracy')
-#plt.ylabel('accuracy')
-#plt.xlabel('epoch')
-#plt.legend(['train', 'test'], loc='upper left')
-#plt.savefig("./plots/losscurves/"+modelName+'_acc'+'.png')
-#
-## summarize history for loss
-#plt.plot(hist['loss'])
-#plt.plot(hist['val_loss'])
-#plt.title('model loss')
-#plt.ylabel('loss')
-#plt.xlabel('epoch')
-#plt.legend(['train', 'test'], loc='upper right')
-#plt.savefig("./plots/losscurves/"+modelName+'_loss'+'.png')
-
 

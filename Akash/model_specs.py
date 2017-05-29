@@ -106,49 +106,50 @@ class setiNet:
 class setiNet_v2:
     @staticmethod
     def build(input_shape,nb_classes,dropout=0.3,init='he_normal',weightsPath=None):
-        model = Sequential()
-        model.add(Conv2D(8,(3,3),padding='same',input_shape=input_shape,kernel_initializer=init))
-        model.add(BatchNormalization())  
-        model.add(Activation('relu'))
-        model.add(Conv2D(8,(3,3),padding='same',kernel_initializer=init))
-        model.add(BatchNormalization()) 
-        model.add(Activation('relu'))
-        model.add(MaxPooling2D((4,4),name='block1_pool'))  # Convblock1 - 64x128x8
-        model.add(Conv2D(16,(3,3),padding='same',kernel_initializer=init))
-        model.add(BatchNormalization()) 
-        model.add(Activation('relu'))
-        model.add(Conv2D(16,(3,3),padding='same',kernel_initializer=init))
-        model.add(BatchNormalization()) 
-        model.add(Activation('relu'))
-        model.add(MaxPooling2D((2,2),name='block2_pool'))  # Convblock2 - 32x64x16
-        model.add(Conv2D(32,(3,3),padding='same',kernel_initializer=init))
-        model.add(BatchNormalization()) 
-        model.add(Activation('relu'))
-        model.add(Conv2D(32,(3,3),padding='same',kernel_initializer=init))
-        model.add(BatchNormalization()) 
-        model.add(Activation('relu'))
-        model.add(MaxPooling2D((2,2),name='block3_pool'))  # Convblock3 - 16x32x32
-        model.add(Conv2D(64,(3,3),padding='same',kernel_initializer=init))
-        model.add(BatchNormalization()) 
-        model.add(Activation('relu'))
-        model.add(MaxPooling2D((2,2),name='block4_pool'))  # Convblock4 - 8x16x64
-        model.add(Conv2D(64,(3,3),padding='same',kernel_initializer=init))
-        model.add(BatchNormalization()) 
-        model.add(Activation('relu'))
-        model.add(MaxPooling2D((2,4),name='block5_pool')) # Convblock5 - 4x4x64
-        model.add(Conv2D(128,(4,4),padding='valid',kernel_initializer=init))
-        model.add(BatchNormalization()) 
-        model.add(Dropout(dropout)) 
-        model.add(Activation('relu',name='block6_activation')) # Convblock6 - 1x1x128 : fully convolutional
-        model.add(Flatten())
-        model.add(Dense(64,activation='relu',kernel_initializer=init))
-        model.add(BatchNormalization()) # FC1 - 64
-        #model.add(Dropout(dropout)) 
-        model.add(Dense(16,activation='relu',kernel_initializer=init))
-        model.add(BatchNormalization()) # FC2 - 16
-        #model.add(Dropout(dropout)) 
-        model.add(Dense(nb_classes,activation='softmax',kernel_initializer=init))
-        if weightsPath: model.load_weights(weightsPath)
+        if weightsPath: model = keras.models.load_model(weightsPath)
+        else:
+            model = Sequential()
+            model.add(Conv2D(8,(3,3),padding='same',input_shape=input_shape,kernel_initializer=init))
+            model.add(BatchNormalization())  
+            model.add(Activation('relu'))
+            model.add(Conv2D(8,(3,3),padding='same',kernel_initializer=init))
+            model.add(BatchNormalization()) 
+            model.add(Activation('relu'))
+            model.add(MaxPooling2D((4,4),name='block1_pool'))  # Convblock1 - 64x128x8
+            model.add(Conv2D(16,(3,3),padding='same',kernel_initializer=init))
+            model.add(BatchNormalization()) 
+            model.add(Activation('relu'))
+            model.add(Conv2D(16,(3,3),padding='same',kernel_initializer=init))
+            model.add(BatchNormalization()) 
+            model.add(Activation('relu'))
+            model.add(MaxPooling2D((2,2),name='block2_pool'))  # Convblock2 - 32x64x16
+            model.add(Conv2D(32,(3,3),padding='same',kernel_initializer=init))
+            model.add(BatchNormalization()) 
+            model.add(Activation('relu'))
+            model.add(Conv2D(32,(3,3),padding='same',kernel_initializer=init))
+            model.add(BatchNormalization()) 
+            model.add(Activation('relu'))
+            model.add(MaxPooling2D((2,2),name='block3_pool'))  # Convblock3 - 16x32x32
+            model.add(Conv2D(64,(3,3),padding='same',kernel_initializer=init))
+            model.add(BatchNormalization()) 
+            model.add(Activation('relu'))
+            model.add(MaxPooling2D((2,2),name='block4_pool'))  # Convblock4 - 8x16x64
+            model.add(Conv2D(64,(3,3),padding='same',kernel_initializer=init))
+            model.add(BatchNormalization()) 
+            model.add(Activation('relu'))
+            model.add(MaxPooling2D((2,4),name='block5_pool')) # Convblock5 - 4x4x64
+            model.add(Conv2D(128,(4,4),padding='valid',kernel_initializer=init))
+            model.add(BatchNormalization()) 
+            model.add(Dropout(dropout)) 
+            model.add(Activation('relu',name='block6_activation')) # Convblock6 - 1x1x128 : fully conv
+            model.add(Flatten())
+            model.add(Dense(64,activation='relu',kernel_initializer=init))
+            model.add(BatchNormalization()) # FC1 - 64
+            #model.add(Dropout(dropout)) 
+            model.add(Dense(16,activation='relu',kernel_initializer=init))
+            model.add(BatchNormalization()) # FC2 - 16
+            #model.add(Dropout(dropout)) 
+            model.add(Dense(nb_classes,activation='softmax',kernel_initializer=init))
         print(model.summary())
         return model
 
