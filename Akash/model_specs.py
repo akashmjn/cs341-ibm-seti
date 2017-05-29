@@ -27,20 +27,21 @@ import commonutils as cu
 class fc_1024_256_256:
     @staticmethod
     def build(inputSize,nb_classes,weightsPath=None):
-        # Deeper FC classifier network (lesser params) trained on activations
-        model = Sequential()
-        model.add(Dense(1024,input_shape=(inputSize,),
-            activation='relu',init="he_normal"))
-        model.add(BatchNormalization())
-        model.add(Dropout(0.6))
-        model.add(Dense(256,activation='relu',init="he_normal"))
-        model.add(BatchNormalization())
-        model.add(Dropout(0.6))
-        model.add(Dense(256,activation='relu',init="he_normal"))
-        model.add(BatchNormalization())
-        model.add(Dropout(0.7))
-        model.add(Dense(nb_classes,activation='softmax'))
-        if weightsPath: model.load_weights(weightsPath)
+        if weightsPath: model = keras.models.load_model(weightsPath)
+        else:
+            # Deeper FC classifier network (lesser params) trained on activations
+            model = Sequential()
+            model.add(Dense(1024,input_shape=(inputSize,),
+                activation='relu',init="he_normal"))
+            model.add(BatchNormalization())
+            model.add(Dropout(0.6))
+            model.add(Dense(256,activation='relu',init="he_normal"))
+            model.add(BatchNormalization())
+            model.add(Dropout(0.6))
+            model.add(Dense(256,activation='relu',init="he_normal"))
+            model.add(BatchNormalization())
+            model.add(Dropout(0.7))
+            model.add(Dense(nb_classes,activation='softmax'))
         return model
 
 ### VGG model setup for fine-tuning
