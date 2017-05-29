@@ -114,7 +114,7 @@ model.compile(loss='categorical_crossentropy',
 #### Definining a bunch of callbacks monitoring/lr scheduling etc. ####
 
 # Saves model with best validation loss
-checkPointer = ModelCheckpoint(filepath="../savedModels/"+modelName+'.hdf5',
+checkPointer = ModelCheckpoint(filepath=modelPath+modelName+'.hdf5',
                                monitor='val_loss',verbose=1, save_best_only=True)
 # learning rate scheduling
 def step_decay(epoch):
