@@ -47,7 +47,7 @@ class fc_1024_256_256:
 ### VGG model setup for fine-tuning
 class vgg_fine_tune:
     @staticmethod
-    def build(input_shape,nb_classes,weightsPath=None):
+    def build(input_shape,nb_classes,weightsPath):
         base_model = VGG16(input_shape=input_shape,weights='imagenet',include_top=False)
         flat_layer = Flatten()(base_model.output)
         flatSize = np.prod(base_model.output_shape[1:])

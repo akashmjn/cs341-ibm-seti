@@ -26,12 +26,10 @@ from sklearn.externals import joblib
 # Taking in command line args
 # python cnnModelTrain.py DATASETPATH AUGMENTFACTOR nEPOCHS OPTIM LR DECAY DROPOUT 
 args = sys.argv
-print (args)
 
 batch_size = 32
 datasetPath = args[1]
 run_name = args[2]
-print(args[3])
 augmentFactor = int(args[3])
 nb_epoch = int(args[4])
 epoch_offset = int(args[5])
@@ -97,11 +95,11 @@ modelName = 'setiNetv2_256x512_'+modelName
 # model = model_specs.fc_1024_256_256.build(X_train.shape[1],nb_classes)
 model = model_specs.setiNet_v2.build((256,512,1),nb_classes,dropout=dropout,init=kernel_init,
         weightsPath=None)
-## Fixing some keras bug
-#keras.backend.get_session().run(tf.global_variables_initializer())
-#model.compile(loss='categorical_crossentropy',
-#              optimizer=foptim,
-#              metrics=['categorical_accuracy'])
+# Fixing some keras bug
+keras.backend.get_session().run(tf.global_variables_initializer())
+model.compile(loss='categorical_crossentropy',
+             optimizer=foptim,
+             metrics=['categorical_accuracy'])
 
 #### Definining a bunch of callbacks monitoring/lr scheduling etc. ####
 
@@ -143,7 +141,7 @@ print("Training a classifier with NLL loss\n")
 #        epochs=nb_epoch,validation_data=(X_val,Y_val),
 #        callbacks=[checkPointer,lrate,tensorboard])
 
-history = model.fit_generator(train_generator,class_weight={0:4.0,1:1.0},
+history = model.fit_generator(train_generator,class_weight={0:1.0,1:1.0},
         steps_per_epoch = train_generator.n//batch_size*augmentFactor,
         epochs=nb_epoch,validation_data=validation_generator,
         validation_steps=validation_generator.n//batch_size,
