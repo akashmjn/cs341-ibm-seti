@@ -154,6 +154,63 @@ class setiNet_v2:
         print(model.summary())
         return model
 
+### CNN model directly trained on images
+### Modified from setiNetv2 with consecutive conv blocks, 
+### using strides to downsample images and not as aggressive pooling
+class setiNet_v3:
+    @staticmethod
+    def build(input_shape,nb_classes,dropout=0.3,init='he_normal',weightsPath=None):
+        if weightsPath: model = keras.models.load_model(weightsPath)
+        else:
+            model = Sequential()
+            model.add(Conv2D(8,(3,3),padding='same',input_shape=input_shape,kernel_initializer=init))
+            model.add(BatchNormalization())  
+            model.add(Activation('relu'))
+            model.add(Conv2D(8,(3,3),padding='same',kernel_initializer=init))
+            model.add(BatchNormalization()) 
+            model.add(Activation('relu'))
+            # Downsizing via strides to 128x256
+            model.add(Conv2D(16,kernel_size=(4,4),strides=(2,2),padding='same',kernel_initializer=init))
+            model.add(BatchNormalization()) 
+            model.add(Activation('relu',name='block1_activation'))
+
+            model.add(Conv2D(16,(3,3),padding='same',input_shape=input_shape,kernel_initializer=init))
+            model.add(BatchNormalization())  
+            model.add(Activation('relu'))
+            model.add(Conv2D(16,(3,3),padding='same',kernel_initializer=init))
+            model.add(BatchNormalization()) 
+            model.add(Activation('relu'))
+            # Downsizing via strides to 64x128
+            model.add(Conv2D(32,kernel_size=(4,4),strides=(2,2),padding='same',kernel_initializer=init))
+            model.add(BatchNormalization()) 
+            model.add(Activation('relu',name='block2_activation'))
+            
+            model.add(MaxPooling2D((2,2),name='pool_1'))  # Fullblock1 - 32x64x32
+            
+            model.add(Conv2D(32,(3,3),padding='same',input_shape=input_shape,kernel_initializer=init))
+            model.add(BatchNormalization())  
+            model.add(Activation('relu'))
+            model.add(Conv2D(32,(3,3),padding='same',kernel_initializer=init))
+            model.add(BatchNormalization()) 
+            model.add(Activation('relu'))
+            # Downsizing via strides to 16x32
+            model.add(Conv2D(128,kernel_size=(4,4),strides=(2,2),padding='same',kernel_initializer=init))
+            model.add(BatchNormalization()) 
+            model.add(Activation('relu'))
+            
+            model.add(MaxPooling2D((2,2),name='pool_2'))  # Fullblock2 - 8x16x64
+            
+            model.add(Flatten())
+            model.add(Dense(128,activation='relu',kernel_initializer=init))
+            model.add(BatchNormalization()) # FC1 - 64
+            model.add(Dropout(dropout)) 
+            model.add(Dense(16,activation='relu',kernel_initializer=init))
+            model.add(BatchNormalization()) # FC2 - 16
+            #model.add(Dropout(dropout)) 
+            model.add(Dense(nb_classes,activation='softmax',kernel_initializer=init))
+        print(model.summary())
+        return model
+
 ## FC classifier network  trained on activations
 #model_class = Sequential()
 #model_class.add(Dense(2048,input_shape=(X_train.shape[1],),activation='relu',init="he_normal"))
