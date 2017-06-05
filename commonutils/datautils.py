@@ -219,7 +219,7 @@ def _printCountDictHelper(countDict,message):
 
 ### Functions to load in and combine all model activations into datasets
 
-def createDataset(sourcePath,fileListPath,destFilename,loadImages,grayscale=False,ntrain=None):
+def createDataset(sourcePath,fileListPath,destFilename,loadImages,loaderFn=None,datShape=None,grayscale=False,ntrain=None):
     # Loading in list of files
     fileListDF = pd.read_csv(fileListPath,dtype={'file_index':str})
     files = [f for f in os.listdir(sourcePath)]
@@ -252,13 +252,15 @@ def createDataset(sourcePath,fileListPath,destFilename,loadImages,grayscale=Fals
     for i in range(len(fileListDF.index)):
         Label_dict[fileListDF.ix[i]['file_index']]=fileListDF.ix[i]['label']
 
-    if loadImages: 
-        size = image.img_to_array(image.load_img(os.path.join(sourcePath,files[0]),
-            grayscale=grayscale)).shape
-        loaderFn = lambda x: image.img_to_array(image.load_img(x,grayscale=grayscale))
-    else:
-        size = np.load(os.path.join(sourcePath,files[0])).flatten().shape
-        loaderFn = lambda x: np.load(x).flatten()
+    if loaderFn is None:
+        if loadImages: 
+            size = image.img_to_array(image.load_img(os.path.join(sourcePath,files[0]),
+                grayscale=grayscale)).shape
+            loaderFn = lambda x: image.img_to_array(image.load_img(x,grayscale=grayscale))
+        else:
+            size = np.load(os.path.join(sourcePath,files[0])).flatten().shape
+            loaderFn = lambda x: np.load(x).flatten()
+    else: size = datShape
 
     '''
     Store the input files as a x_train, y_train, x_val and y_val ,x_test and y_test.
