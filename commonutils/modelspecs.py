@@ -20,7 +20,6 @@ import numpy as np
 import collections
 import os,sys
 import sklearn
-import commonutils as cu 
 
 
 ### Fully connected model built on VGG activations 
@@ -198,16 +197,16 @@ class setiNet_v3:
             model.add(BatchNormalization()) 
             model.add(Activation('relu'))
             
-            model.add(MaxPooling2D((2,2),name='pool_2'))  # Fullblock2 - 8x16x64
+            model.add(MaxPooling2D((2,2),name='pool_2'))  # Fullblock2 - 8x16x128
             
             model.add(Flatten())
             model.add(Dense(128,activation='relu',kernel_initializer=init))
             model.add(BatchNormalization()) # FC1 - 64
             model.add(Dropout(dropout)) 
-            model.add(Dense(16,activation='relu',kernel_initializer=init))
+            model.add(Dense(64,activation='relu',kernel_initializer=init))
             model.add(BatchNormalization()) # FC2 - 16
             #model.add(Dropout(dropout)) 
-            model.add(Dense(nb_classes,activation='softmax',kernel_initializer=init))
+            model.add(Dense(nb_classes,activation='softmax',kernel_initializer=init,name='ts1class_{}'.format(nb_classes)))
         print(model.summary())
         return model
 
@@ -253,5 +252,3 @@ class setiNet_v3:
 #model_reg_1024d.add(BatchNormalization())
 #model_reg_1024d.add(Dropout(0.5))
 #model_reg_1024d.add(Dense(1))
-
-

@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import collections
 import pandas as pd
 import h5py
+from scipy import signal
 
 import keras
 from keras import backend as K
@@ -17,15 +18,38 @@ from keras.utils import np_utils
 
 from PIL import Image
 
-def saveImageFromSpec(spec,imsize,binFactor,colmap=None,save=False,filename=None):
+## Assumes input as aca file from ibmseti package
+def welchPSD(aca,target_size,verbose=False):
+    originalSignal = aca.complex_data()
+    full_signal_len = len(originalSignal)
+    # Generate spectrogram with extra columns and eliminate
+    # to get rid of some line caused by welch
+    nExtraCols = 2
+    # Number of chunks signal is broken into by welch
+    windowFactor = full_signal_len//np.prod(target_size)
+    if verbose: print "Using window factor: %d" % windowFactor
+    # Fitting an appropriate signal length (possibly buggy, not tested for all input sizes)
+    spec_input_size = (target_size[0],full_signal_len//target_size[0])
+    clipped_signal_len = np.prod(spec_input_size)
+    # Break signal into time slices
+    reshapedSignal = aca._reshape(originalSignal[0:clipped_signal_len],spec_input_size)
+    psd = signal.welch(reshapedSignal,nperseg=target_size[1]+nExtraCols,return_onesided=False)[1]
+    # Removing some arbitrary line that appears by getting rid of cols at both edges
+    psd = psd[:,1:(target_size[1]+1)]
+    # Correcting for some 90 degree rotation caused by welch
+    psd = np.roll(psd,target_size[1]//2+1,axis=1)
+    return psd
+
+def saveImageFromSpec(spec,imsize,binFactor,columnNorm=False,colmap=None,save=False,filename=None):
     """
     Saves an image generated from an array containing a spectrogram
+    imsize is (height,width)
     """
     specShape = spec.shape
     spec = nputils.bin_ndarray(spec[1:,:],(specShape[0]-1,specShape[1]/binFactor),
             operation='average')
     dpi = 96.0
-    fig = plt.figure(frameon=False,figsize=(imsize[0]/dpi,imsize[1]/dpi))
+    fig = plt.figure(frameon=False,figsize=(imsize[1]/dpi,imsize[0]/dpi))
     ax = plt.Axes(fig,[0.,0.,1.,1.])
     ax.set_axis_off()
     fig.add_axes(ax)
@@ -33,6 +57,10 @@ def saveImageFromSpec(spec,imsize,binFactor,colmap=None,save=False,filename=None
     # ax.imshow(np.log(spec), aspect = 0.5*float(spec.shape[1]) / spec.shape[0])
     if colmap is not None:
         plt.set_cmap(colmap)
+    spec = np.log(spec)
+    if columnNorm:
+        spec = spec - np.median(spec,axis=0)
+        spec = spec.clip(min=0)
     ax.imshow(np.log(spec), aspect = 'auto')
     fig.savefig("{}.jpg".format(filename),dpi=dpi)
     plt.close('all')
@@ -289,7 +317,7 @@ def createActivationsDataset(actPath,fileListPath,nval,ntest,actFilename,ntrain=
     createDataset(actPath,fileListPath,nval,ntest,actFilename,loadImages=False,ntrain=None)
 
 
-def loadDataset(hdf5filepath,scale=True,ntrain=None,fixSkew=None,subsetClasses=None):
+def loadDataset(hdf5filepath,scale=True,dataNormInfoPath=None,ntrain=None,fixSkew=None,subsetClasses=None):
     """
     subsetClasses: dict mapping a subset of labels to the required labels
     Ignore fixSkew for now
@@ -366,8 +394,14 @@ def loadDataset(hdf5filepath,scale=True,ntrain=None,fixSkew=None,subsetClasses=N
     num_test = x_test.shape[0]
 
     if scale:
-        means = np.mean(x_train,axis=0)
-        stddev = np.std(x_train,axis=0)
+        if dataNormInfoPath:
+            with open(dataNormInfoPath,'rb') as f:
+                dataNormInfo = pickle.load(f)
+                means = dataNormInfo['mean']
+                stddev = dataNormInfo['std']
+        else: 
+            means = np.mean(x_train,axis=0)
+            stddev = np.std(x_train,axis=0)
         # Preventing zero division
         # stddev[stddev<1e-3] = 1
         x_train -= means
