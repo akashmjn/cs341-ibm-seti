@@ -150,7 +150,7 @@ class setiNet_v2:
             model.add(Dense(16,activation='relu',kernel_initializer=init))
             model.add(BatchNormalization()) # FC2 - 16
             #model.add(Dropout(dropout)) 
-            model.add(Dense(nb_classes,activation='softmax',kernel_initializer=init))
+            model.add(Dense(nb_classes,activation='softmax',kernel_initializer=init,name='ts1class_{}'.format(nb_classes)))
         print(model.summary())
         return model
 
