@@ -27,26 +27,27 @@ import commonutils as cu
 class fc_1024_256_256:
     @staticmethod
     def build(inputSize,nb_classes,weightsPath=None):
-        # Deeper FC classifier network (lesser params) trained on activations
-        model = Sequential()
-        model.add(Dense(1024,input_shape=(inputSize,),
-            activation='relu',init="he_normal"))
-        model.add(BatchNormalization())
-        model.add(Dropout(0.6))
-        model.add(Dense(256,activation='relu',init="he_normal"))
-        model.add(BatchNormalization())
-        model.add(Dropout(0.6))
-        model.add(Dense(256,activation='relu',init="he_normal"))
-        model.add(BatchNormalization())
-        model.add(Dropout(0.7))
-        model.add(Dense(nb_classes,activation='softmax'))
-        if weightsPath: model.load_weights(weightsPath)
+        if weightsPath: model = keras.models.load_model(weightsPath)
+        else:
+            # Deeper FC classifier network (lesser params) trained on activations
+            model = Sequential()
+            model.add(Dense(1024,input_shape=(inputSize,),
+                activation='relu',init="he_normal"))
+            model.add(BatchNormalization())
+            model.add(Dropout(0.6))
+            model.add(Dense(256,activation='relu',init="he_normal"))
+            model.add(BatchNormalization())
+            model.add(Dropout(0.6))
+            model.add(Dense(256,activation='relu',init="he_normal"))
+            model.add(BatchNormalization())
+            model.add(Dropout(0.7))
+            model.add(Dense(nb_classes,activation='softmax'))
         return model
 
 ### VGG model setup for fine-tuning
 class vgg_fine_tune:
     @staticmethod
-    def build(input_shape,nb_classes,weightsPath=None):
+    def build(input_shape,nb_classes,weightsPath):
         base_model = VGG16(input_shape=input_shape,weights='imagenet',include_top=False)
         flat_layer = Flatten()(base_model.output)
         flatSize = np.prod(base_model.output_shape[1:])
@@ -149,71 +150,51 @@ class setiNet_v2:
             model.add(Dense(16,activation='relu',kernel_initializer=init))
             model.add(BatchNormalization()) # FC2 - 16
             #model.add(Dropout(dropout)) 
-            model.add(Dense(nb_classes,activation='softmax',kernel_initializer=init))
+            model.add(Dense(nb_classes,activation='softmax',kernel_initializer=init,name='ts1class_{}'.format(nb_classes)))
         print(model.summary())
         return model
 
-# dimensions of our images.
-img_width, img_height = 150, 150
+## FC classifier network  trained on activations
+#model_class = Sequential()
+#model_class.add(Dense(2048,input_shape=(X_train.shape[1],),activation='relu',init="he_normal"))
+#model_class.add(BatchNormalization())
+#model_class.add(Dropout(0.5))
+#model_class.add(Dense(256,activation='relu',init="he_normal"))
+#model_class.add(BatchNormalization())
+#model_class.add(Dropout(0.5))
+#model_class.add(Dense(nb_classes,activation='softmax'))
+#
+## FC regression network  trained on activations
+#model_reg = Sequential()
+#model_reg.add(Dense(2048,input_shape=(X_train.shape[1],),activation='relu',init="he_normal"))
+#model_reg.add(BatchNormalization())
+#model_reg.add(Dropout(0.5))
+#model_reg.add(Dense(256,activation='relu'))
+#model_reg.add(BatchNormalization())
+#model_reg.add(Dropout(0.5))
+#model_reg.add(Dense(1))
+#
+## FC regression network  trained on activations
+#model_reg_2048 = Sequential()
+#model_reg_2048.add(Dense(2048,input_shape=(X_train.shape[1],),activation='relu'))
+#model_reg_2048.add(BatchNormalization())
+#model_reg_2048.add(Dropout(0.6))
+#model_reg_2048.add(Dense(256,activation='relu'))
+#model_reg_2048.add(BatchNormalization())
+#model_reg_2048.add(Dropout(0.5))
+#model_reg_2048.add(Dense(1))
+#
+## FC regression network  trained on activations
+#model_reg_1024d = Sequential()
+#model_reg_1024d.add(Dense(1024,input_shape=(X_train.shape[1],),activation='relu'))
+#model_reg_1024d.add(BatchNormalization())
+#model_reg_1024d.add(Dropout(0.5))
+#model_reg_1024d.add(Dense(256,activation='relu'))
+#model_reg_1024d.add(BatchNormalization())
+#model_reg_1024d.add(Dropout(0.5))
+#model_reg_1024d.add(Dense(64,activation='relu'))
+#model_reg_1024d.add(BatchNormalization())
+#model_reg_1024d.add(Dropout(0.5))
+#model_reg_1024d.add(Dense(1))
 
-top_model_weights_path = 'bottleneck_fc_model.h5'
-train_data_dir = 'data/train'
-validation_data_dir = 'data/validation'
-nb_train_samples = 2000
-nb_validation_samples = 800
-epochs = 50
-batch_size = 16
 
-
-def save_bottlebeck_features():
-    datagen = ImageDataGenerator(rescale=1. / 255)
-
-    # build the VGG16 network
-    model = applications.VGG16(include_top=False, weights='imagenet')
-
-    generator = datagen.flow_from_directory(
-        train_data_dir,
-        target_size=(img_width, img_height),
-        batch_size=batch_size,
-        class_mode=None,
-        shuffle=False)
-    bottleneck_features_train = model.predict_generator(
-        generator, nb_train_samples // batch_size)
-    np.save(open('bottleneck_features_train.npy', 'w'),
-            bottleneck_features_train)
-
-    generator = datagen.flow_from_directory(
-        validation_data_dir,
-        target_size=(img_width, img_height),
-        batch_size=batch_size,
-        class_mode=None,
-        shuffle=False)
-    bottleneck_features_validation = model.predict_generator(
-        generator, nb_validation_samples // batch_size)
-    np.save(open('bottleneck_features_validation.npy', 'w'),
-            bottleneck_features_validation)
-
-
-def train_top_model():
-    train_data = np.load(open('bottleneck_features_train.npy'))
-    train_labels = np.array(
-        [0] * (nb_train_samples / 2) + [1] * (nb_train_samples / 2))
-
-    validation_data = np.load(open('bottleneck_features_validation.npy'))
-    validation_labels = np.array(
-        [0] * (nb_validation_samples / 2) + [1] * (nb_validation_samples / 2))
-
-    model = Sequential()
-    model.add(Flatten(input_shape=train_data.shape[1:]))
-    model.add(Dense(256, activation='relu'))
-    model.add(Dropout(0.5))
-    model.add(Dense(1, activation='sigmoid'))
-
-    model.compile(optimizer='rmsprop',
-                  loss='binary_crossentropy', metrics=['accuracy'])
-
-    model.fit(train_data, train_labels,
-              epochs=epochs,
-              batch_size=batch_size,
-              validation_data=(validation_data, validation_labels))
-    model.save_weights(top_model_weights_path)
