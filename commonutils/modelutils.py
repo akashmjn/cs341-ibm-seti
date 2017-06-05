@@ -24,6 +24,10 @@ import commonutils as cu
 from sklearn import svm
 from sklearn.externals import joblib
 
+def columnNormalize(data):
+    data = data - np.median(data,axis=0)
+    #data = data.clip(min=0)
+    return data
 
 def evaluateSavedModel(modelPath,dataset,mode):
     """
