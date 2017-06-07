@@ -25,7 +25,7 @@ from sklearn import svm
 from sklearn.externals import joblib
 
 def columnNormalize(data):
-    data = data - np.median(data,axis=0)
+    data = data - np.median(np.squeeze(data),axis=0)
     #data = data.clip(min=0)
     return data
 
@@ -47,19 +47,20 @@ def evaluateSavedModel(modelPath,dataset,mode):
         y_true,model_prediction))
     return model_prediction
 
-def runLinSVMModel(dataset,C,nDataset,modeltype,printReports=True,gamma=None):
+def runLinSVMModel(dataset,C,modeltype,printReports=True,gamma=None):
     x_train = dataset['x_train']
     y_train = dataset['y_train']
     x_test = dataset['x_test']
     y_test = dataset['y_test']
     
+    nDataset = x_train.shape[0]
+    
     # Scaling training and test data
     means = np.mean(x_train,axis=0)
     stddev = np.std(x_train,axis=0)
     # Preventing zero division
-    stddev[stddev<1e-3] = 1
-    x_train = (x_train - means)/stddev
-    x_test = (x_test - means)/stddev
+    x_train = (x_train - means)/(stddev+1e-3)
+    x_test = (x_test - means)/(stddev+1e-3)
     
     if modeltype=='linSVM':
         lin_clf = svm.LinearSVC(C=C/nDataset,verbose=True,class_weight='balanced')
@@ -85,14 +86,14 @@ def runLinSVMModel(dataset,C,nDataset,modeltype,printReports=True,gamma=None):
     test_confmat = sklearn.metrics.confusion_matrix(y_test,pred_test)
     
     if printReports:
-        print train_report
-        print train_confmat
-        print test_report
-        print test_confmat
+        print(train_report)
+        print(train_confmat)
+        print(test_report)
+        print(test_confmat)
 
         print("Classification accuracy: %0.2f" % sklearn.metrics.accuracy_score(y_test,pred_test) )
         print("MSE: %0.2f" % np.mean(np.square(y_test - lin_clf.predict(x_test))) )
-        print("Predictions correlation: %0.2f") % np.corrcoef(y_test,pred_test,rowvar=0)[0,1]
+        #print("Predictions correlation: %0.2f") % np.corrcoef(y_test,pred_test,rowvar=0)[0,1]
     
     result = {'lin_clf':lin_clf,'train_report':train_report,'train_confmat':train_confmat,
              'test_report':test_report,'test_confmat':test_confmat,
