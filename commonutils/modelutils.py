@@ -47,4 +47,55 @@ def evaluateSavedModel(modelPath,dataset,mode):
         y_true,model_prediction))
     return model_prediction
 
+def runLinSVMModel(dataset,C,nDataset,modeltype,printReports=True,gamma=None):
+    x_train = dataset['x_train']
+    y_train = dataset['y_train']
+    x_test = dataset['x_test']
+    y_test = dataset['y_test']
+    
+    # Scaling training and test data
+    means = np.mean(x_train,axis=0)
+    stddev = np.std(x_train,axis=0)
+    # Preventing zero division
+    stddev[stddev<1e-3] = 1
+    x_train = (x_train - means)/stddev
+    x_test = (x_test - means)/stddev
+    
+    if modeltype=='linSVM':
+        lin_clf = svm.LinearSVC(C=C/nDataset,verbose=True,class_weight='balanced')
+        lin_clf.fit(x_train, y_train)
+        pred_train = lin_clf.predict(x_train)
+        pred_test = lin_clf.predict(x_test)
+    elif modeltype=='linSVR':
+        lin_clf = svm.LinearSVC(C=C/nDataset,verbose=True)
+        lin_clf.fit(x_train, y_train)
+        pred_train = np.round(lin_clf.predict(x_train))
+        pred_test = np.round(lin_clf.predict(x_test))
+    elif modeltype=='rbfSVM':
+        lin_clf = svm.SVC(C=C/nDataset,gamma=gamma,verbose=True,class_weight='balanced',
+                          decision_function_shape='ovr')
+        lin_clf.fit(x_train, y_train)
+        pred_train = lin_clf.predict(x_train)
+        pred_test = lin_clf.predict(x_test)
 
+    train_report = sklearn.metrics.classification_report(y_train,pred_train)
+    test_report = sklearn.metrics.classification_report(y_test,pred_test)
+
+    train_confmat = sklearn.metrics.confusion_matrix(y_train,pred_train)
+    test_confmat = sklearn.metrics.confusion_matrix(y_test,pred_test)
+    
+    if printReports:
+        print train_report
+        print train_confmat
+        print test_report
+        print test_confmat
+
+        print("Classification accuracy: %0.2f" % sklearn.metrics.accuracy_score(y_test,pred_test) )
+        print("MSE: %0.2f" % np.mean(np.square(y_test - lin_clf.predict(x_test))) )
+        print("Predictions correlation: %0.2f") % np.corrcoef(y_test,pred_test,rowvar=0)[0,1]
+    
+    result = {'lin_clf':lin_clf,'train_report':train_report,'train_confmat':train_confmat,
+             'test_report':test_report,'test_confmat':test_confmat,
+             'train_score':lin_clf.score(x_train,y_train),
+             'test_score':lin_clf.score(x_test,y_test)}
+    return result
