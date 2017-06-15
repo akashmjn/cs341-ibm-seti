@@ -25,7 +25,7 @@ from sklearn import svm
 from sklearn.externals import joblib
 
 def columnNormalize(data):
-    data = data - np.median(np.squeeze(data),axis=0)
+    data = data - np.median(data,axis=0)
     #data = data.clip(min=0)
     return data
 
@@ -47,6 +47,22 @@ def evaluateSavedModel(modelPath,dataset,mode):
         y_true,model_prediction))
     return model_prediction
 
+# Saves misclassifications for a particular predicted class
+# If predClassNum=None, does it for all classes
+def saveMisclassifications(sourcePath,destPath,y_true,y_pred,y_ids,predClassNum=None):
+    if predClassNum is None:
+        predClassList = np.unique(y_pred)
+    else:
+        predClassList = [predClassNum,]
+    for predClassNum in predClassList:
+        os.system("mkdir -p {}".format(destPath))
+        for i in range(len(y_pred)):
+            if y_pred[i] == predClassNum and y_true[i] != predClassNum:
+                imgid = y_ids[i]
+                source = os.path.join(sourcePath,"{}.jpg".format(imgid)) 
+                dest = os.path.join(destPath,"p{}c{}_{}.jpg".format(predClassNum,int(y_true[i]),imgid))
+                os.system("cp {} {}".format(source,dest))
+
 def runLinSVMModel(dataset,C,modeltype,printReports=True,gamma=None):
     x_train = dataset['x_train']
     y_train = dataset['y_train']
@@ -59,8 +75,8 @@ def runLinSVMModel(dataset,C,modeltype,printReports=True,gamma=None):
     means = np.mean(x_train,axis=0)
     stddev = np.std(x_train,axis=0)
     # Preventing zero division
-    x_train = (x_train - means)/(stddev+1e-3)
-    x_test = (x_test - means)/(stddev+1e-3)
+    x_train = (x_train - means)/(stddev+1e-6)
+    x_test = (x_test - means)/(stddev+1e-6)
     
     if modeltype=='linSVM':
         lin_clf = svm.LinearSVC(C=C/nDataset,verbose=True,class_weight='balanced')

@@ -15,8 +15,9 @@ from keras.preprocessing import image
 from keras.applications.vgg16 import preprocess_input
 from keras.models import Model
 from keras.utils import np_utils
-
 from PIL import Image
+
+import modelutils
 
 ## Assumes input as aca file from ibmseti package
 def welchPSD(aca,target_size,verbose=False):
@@ -65,7 +66,10 @@ def saveImageFromSpec(spec,imsize,binFactor,columnNorm=False,colmap=None,save=Fa
     fig.savefig("{}.jpg".format(filename),dpi=dpi)
     plt.close('all')
 
-
+def saveHDF5(datasetDict,destPath):
+    with h5py.File(destPath,'w') as hf:
+        for key in datasetDict.keys():
+            hf.create_dataset(key,data=datasetDict[key])
 
 def modelActivations(model,layer_name,input,poolfit=None,show=False,save=False,):
     """
@@ -319,7 +323,8 @@ def createActivationsDataset(actPath,fileListPath,nval,ntest,actFilename,ntrain=
     createDataset(actPath,fileListPath,nval,ntest,actFilename,loadImages=False,ntrain=None)
 
 
-def loadDataset(hdf5filepath,scale=True,dataNormInfoPath=None,ntrain=None,fixSkew=None,subsetClasses=None):
+def loadDataset(hdf5filepath,scale=True,columnNorm=False,dataNormInfoPath=None,ntrain=None,
+                fixSkew=None,subsetClasses=None,printDistribution=True):
     """
     subsetClasses: dict mapping a subset of labels to the required labels
     Ignore fixSkew for now
@@ -362,34 +367,35 @@ def loadDataset(hdf5filepath,scale=True,dataNormInfoPath=None,ntrain=None,fixSke
         y_train = y_train[indices]
         train_ids = train_ids[indices]
 
-    # distribution of labels in train / test
-    count_dict_train = {}
-    count_dict_val = {}
-    count_dict_test = {}
-    for i in range(int(np.max(y_train))+1):
-        count_dict_train[i] = np.count_nonzero(y_train==i)
-        count_dict_val[i] = np.count_nonzero(y_val==i)
-        count_dict_test[i] = np.count_nonzero(y_test==i)
+    if printDistribution:
+        # distribution of labels in train / test
+        count_dict_train = {}
+        count_dict_val = {}
+        count_dict_test = {}
+        for i in range(int(np.max(y_train))+1):
+            count_dict_train[i] = np.count_nonzero(y_train==i)
+            count_dict_val[i] = np.count_nonzero(y_val==i)
+            count_dict_test[i] = np.count_nonzero(y_test==i)
 
-    # Resampling data 
-    # TODO: Need to generalize this code 
-    if fixSkew:
-        train_dist = {}
-        train_resample = {}
-        bdist = 0.2
-        for k,v in count_dict_train.items():
-            train_dist[k] = v*1.0/ntrain
-            if (bdist-train_dist[k])>0.01:
-                train_resample[k] = int(bdist*ntrain) - v
+        # Resampling data 
+        # TODO: Need to generalize this code 
+        if fixSkew:
+            train_dist = {}
+            train_resample = {}
+            bdist = 0.2
+            for k,v in count_dict_train.items():
+                train_dist[k] = v*1.0/ntrain
+                if (bdist-train_dist[k])>0.01:
+                    train_resample[k] = int(bdist*ntrain) - v
 
-        for k,v in train_resample.items():
-            if train_dist[k]!=0:
-                x_train_label_k = x_train[y_train==k]
-                np.random.seed(2)
-                resampled = np.random.choice(x_train_label_k.shape[0],v)
-                x_train = np.append(x_train,x_train[resampled],axis=0)
-                y_train = np.append(y_train,np.repeat(k,len(resampled)),axis=0)
-                count_dict_train[k] = int(bdist*ntrain)
+            for k,v in train_resample.items():
+                if train_dist[k]!=0:
+                    x_train_label_k = x_train[y_train==k]
+                    np.random.seed(2)
+                    resampled = np.random.choice(x_train_label_k.shape[0],v)
+                    x_train = np.append(x_train,x_train[resampled],axis=0)
+                    y_train = np.append(y_train,np.repeat(k,len(resampled)),axis=0)
+                    count_dict_train[k] = int(bdist*ntrain)
     
     # Centering and scaling data
     num_val = x_val.shape[0]
@@ -407,11 +413,16 @@ def loadDataset(hdf5filepath,scale=True,dataNormInfoPath=None,ntrain=None,fixSke
         # Preventing zero division
         # stddev[stddev<1e-3] = 1
         x_train -= means
-        x_train /= (stddev+1e-3)
+        x_train /= (stddev+1e-6)
         x_val -= means
-        x_val /= (stddev+1e-3)
+        x_val /= (stddev+1e-6)
         x_test -= means
-        x_test /= (stddev+1e-3)
+        x_test /= (stddev+1e-6)
+        
+    if columnNorm:
+        x_train = np.apply_along_axis(lambda x: (x - np.median(x,axis=0)),0,x_train)
+        x_val = np.apply_along_axis(lambda x: (x - np.median(x,axis=0)),0,x_val)
+        x_test = np.apply_along_axis(lambda x: (x - np.median(x,axis=0)),0,x_test)
 
     # input shape
     act_shape = x_train[0].shape
@@ -431,14 +442,15 @@ def loadDataset(hdf5filepath,scale=True,dataNormInfoPath=None,ntrain=None,fixSke
 
 
     print 'Dim of data: %d' % x_train[0,:].shape[0]
+    
+    if printDistribution:
+        print 'Number of training images = %d' %(y_train.shape[0])
+        print 'Number of validation images = %d' %(y_val.shape[0])
+        print 'Number of test images = %d' %(y_test.shape[0])
 
-    print 'Number of training images = %d' %(y_train.shape[0])
-    print 'Number of validation images = %d' %(y_val.shape[0])
-    print 'Number of test images = %d' %(y_test.shape[0])
-
-    _printCountDictHelper(count_dict_train,"Distribution in training data:")
-    _printCountDictHelper(count_dict_val,"Distribution in validation data:")
-    _printCountDictHelper(count_dict_test,"Distribution in test data:")
+        _printCountDictHelper(count_dict_train,"Distribution in training data:")
+        _printCountDictHelper(count_dict_val,"Distribution in validation data:")
+        _printCountDictHelper(count_dict_test,"Distribution in test data:")
 
     return  {'x_train':x_train,'y_train':y_train,'train_ids':train_ids,
             'x_val':x_val,'y_val':y_val,'val_ids':val_ids,
