@@ -1,45 +1,86 @@
 %% Image pre-processing
 
-cd('~/Stanford/SpringQuarter/CS341/matlab-exploration/')
+basePath = '~/Stanford/SpringQuarter/CS341/cs341-ibm-seti/matlab-exploration/';
+cd(basePath)
 
+% Colour images
 % Noisy Narrowband drd (curve) signal
-im003294 = imread('~/Stanford/SpringQuarter/CS341/matlab-exploration/p0c2_003294.jpg');
+im003294 = imread(strcat(basePath,'p0c2_003294.jpg'));
 % Noisy Straight line signal
-im002024 = imread('~/Stanford/SpringQuarter/CS341/matlab-exploration/p0c1_002024.jpg');
+im002024 = imread(strcat(basePath,'p0c1_002024.jpg'));
 % Very faint Straight line signal
-im012543 = imread('~/Stanford/SpringQuarter/CS341/matlab-exploration/p0c1_012543.jpg');
+im012543 = imread(strcat(basePath,'p0c1_012543.jpg'));
 % Clearer Straight line signal
-im009484 = imread('~/Stanford/SpringQuarter/CS341/matlab-exploration/p0c1_009484.jpg');
+im009484 = imread(strcat(basePath,'p0c1_009484.jpg'));
+% Clearer narrowbanddrd signal
+imnarrowbdrd = imread(strcat(basePath,'narrowbanddrd_0.jpg'));
+
+% Grayscale images
+% Clear, partially included curve
+im015089 = rgb2gray(imread(strcat(basePath,'p0c1_015089.jpg')));
+% Pulsed, moderately clear line
+im014682 = rgb2gray(imread(strcat(basePath,'p1c0_014682.jpg')));
+% Slightly visible line 
+im015834 = rgb2gray(imread(strcat(basePath,'p1c0_015834.jpg')));
+% Moderately clear squiggle
+im015602 = rgb2gray(imread(strcat(basePath,'p1c2_015602.jpg')));
 
 %% rough space
+colIm = im012543;
+greysImRaw = imcomplement(rgb2gray(im012543)); % Inverting the conversion to white-high
+avgFilt = filter2(fspecial('average',3),greysImRaw)/255;
+medFilt = medfilt2(greysImRaw);
 
-g002024 = imcomplement(rgb2gray(im002024)); % Inverting the conversion to white-high
-avg002024 = filter2(fspecial('average',3),g002024)/255;
-med002024 = medfilt2(g002024);
-% Thresholding
+% Normalizing column-wise between 0-1
+imNorm = double(greysImRaw);
+imNorm = imNorm - repmat(min(imNorm,[],1),length(imNorm(:,1)),1);
+imNorm = imNorm./repmat(max(imNorm,[],1),length(imNorm(:,1)),1);
+figure();imshow(imNorm,[])
+
+% Trying a PCA reduction with columns as features
+[U,S,V] = svd(imNorm,0);
+
+% figure()
+% for i=125:140
+%     ncomp = i;
+%     imTransform = U(:,1:ncomp)*S(1:ncomp,1:ncomp)*V(:,1:ncomp)';
+%     pause(0.2)
+%     imshow(imTransform)
+% end
+ncomp = 2;
+imTransform = U(:,1:ncomp)*S(1:ncomp,1:ncomp)*V(:,1:ncomp)';
+
+greysIm = imNorm-imTransform;
+% Some basic stats-based thresholding
 figure();
-imhist(g002024);
+imhist(greysIm);
+thresh = quantile(greysIm(:),0.9);
+disp('Thresholding at:') 
+disp(thresh)
 figure();
-b002024 = imquantize(g002024,100)-1;
-imshow(b002024);
+binaryIm = imquantize(greysIm,thresh)-1;
+imshow(binaryIm);
+
+
+%% Other rough stuff
+
+% Filtering normalized image
+avgFiltNorm = filter2(fspecial('gaussian',[3 3],0.5),imNorm);
+% NLM filter on column-normalized data
+opts = struct('kernelratio',3,'windowratio',10,'filterstrength',0.2);
+nlmFilt = NLMF(imNorm,opts);
+figure();imshow(nlmFilt,[])
+
 % Edge detection
-[BW,thresh] = edge(b002024,'sobel');
-[BW,thresh] = edge(b002024,'canny');
-[BW,thresh] = edge(g002024,'log');
+[BW,thresh] = edge(binaryIm,'sobel');
+[BW,thresh] = edge(binaryIm,'canny');
+[BW,thresh] = edge(greysImRaw,'log');
 % Trying out non-local means filtering
 % NLM filter
 opts = struct('kernelratio',10,'windowratio',3,'filterstrength',0.05);
 nlmFilt = NLMF(double(greysImRaw)/255,opts);
 imshow(nlmFilt)
 
-% Subtracting column-wise average and normalizing between 0-1
-imNorm = double(greysImRaw) - ones(length(greysImRaw(:,1)),1)*mean(greysImRaw,1);
-imNorm = imNorm - min(imNorm(:));
-imNorm = imNorm./max(imNorm(:));
-% NLM filter on column-normalized data
-opts = struct('kernelratio',3,'windowratio',10,'filterstrength',0.05);
-nlmFilt = NLMF(imNorm,opts);
-imshow(nlmFilt)
 
 % Subtracting row-wise average and normalizing between 0-1
 imNormR = double(greysImRaw) - mean(greysImRaw,2)*ones(1,length(greysImRaw(1,:)));
@@ -69,7 +110,7 @@ horzMAFilt = repmat([0 1/n 0],n,1);
 avgFilt = filter2(horzMAFilt,greysImRaw)/255;
 figure(); imshow(avgFilt,[])
 
-%% Trying some basic thresholding / filtering + hough transform
+%% Trying some basic filtering / thresholding
 
 greysImRaw = imcomplement(rgb2gray(colIm)); % Inverting the conversion to white-high
 % Subtracting column-wise average and normalizing between 0-1
@@ -91,8 +132,9 @@ horzMAFilt = filter2(MAfilter,greysImRaw)/255;
 opts = struct('kernelratio',3,'windowratio',10,'filterstrength',0.05);
 nlmFilt = NLMF(imNormR,opts);
 %nlmFilt = NLMF(double(greysImRaw)/255,opts);
-greysIm = horzMAFilt;
-figure(); imshowpair(double(greysImRaw)/255,greysIm)
+greysIm = greysImRaw;
+%figure(); imshowpair(double(greysImRaw)/255,greysIm)
+figure(); imshow(double(greysImRaw)/255,[])
 % Some basic stats-based thresholding
 figure();
 imhist(greysIm);
@@ -101,10 +143,11 @@ disp('Thresholding at:')
 disp(thresh)
 figure();
 binaryIm = imquantize(greysIm,thresh)-1;
-imshow(binaryIm);
+imshow(binaryIm,[]);
 
 %% Hough transform
-[H,theta,rho] = hough(binaryIm,'Theta',-80:0.5:80);
+aspectAngle = floor(90-atand(size(binaryIm,1)/size(binaryIm,2))-1);
+[H,theta,rho] = hough(binaryIm,'Theta',-aspectAngle:0.5:aspectAngle);
 % finding peaks
 P = houghpeaks(H,5);
 %P = houghpeaks(H,1,'threshold',ceil(0.3*max(H(:))));
