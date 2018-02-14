@@ -2,6 +2,12 @@
 
 Classifying signals and simulations representing data from the Allen Telescope Array (ATA), in partnership with Adam Cox (@gadamc) from IBM. 
 
+**Representative (clean) signal types**:
+[!Signal Classes](https://raw.githubusercontent.com/akashmjn/cs341-ibm-seti/master/report/signal_classes.png)
+
+**SETINet V3 Activations for poor SNR example**:
+[!SETINetV3 Activations](https://raw.githubusercontent.com/akashmjn/cs341-ibm-seti/master/report/setinetv3_activations.png) 
+
 **Final presentation:** [link](https://docs.google.com/presentation/d/e/2PACX-1vSCqoerGFaEWE1RixF4JAQpdREUC-H57kOQU--OU4yEQY08ZLUpwF4J1ghw0Py-hix5G822xES_h_YX/pub?start=false&loop=false&delayms=3000)
 
 **Final report:** [link](https://akashmjn.github.io/cs341/cs341-seti-final-report.pdf)
